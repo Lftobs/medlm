@@ -1,0 +1,1 @@
+Case courtesy of Zeeshan Ghias Khan, <a href="https://radiopaedia.org/?lang=us">Radiopaedia.org</a>. From the case <a href="https://radiopaedia.org/cases/66041?lang=us">rID: 66041</a>
