@@ -1,6 +1,6 @@
 from google import genai
 from google.genai import types
-from ..core.config import settings
+from app.core.config import settings
 import logging
 import datetime
 from pathlib import Path
@@ -9,12 +9,16 @@ import json
 logger = logging.getLogger(__name__)
 
 
+# TODO: revert back to context caching once i get a paid api_key
+#  cos vertex ai is paid and chef is lowkey broke asf :)
 class GeminiService:
     def __init__(self):
         self.client = None
         if settings.GEMINI_API_KEY:
             try:
-                self.client = genai.Client(api_key="AIzaSyA1fYoJIDzcsokOp0h5VX-V6tlNakbaCAk")
+                self.client = genai.Client(
+                    api_key="AIzaSyA1fYoJIDzcsokOp0h5VX-V6tlNakbaCAk"
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini Client: {e}")
         else:
@@ -30,32 +34,34 @@ class GeminiService:
 
         uploaded_files = []
         for path in file_paths:
-            logger.info(f"Uploading {path.name} ({path.stat().st_size} bytes) to Gemini...")
+            logger.info(
+                f"Uploading {path.name} ({path.stat().st_size} bytes) to Gemini..."
+            )
             try:
                 # Detect MIME type from file extension
                 import mimetypes
+
                 mime_type, _ = mimetypes.guess_type(str(path))
                 if not mime_type:
                     ext = path.suffix.lower()
-                    if ext == '.pdf':
-                        mime_type = 'application/pdf'
-                    elif ext in ('.jpg', '.jpeg'):
-                        mime_type = 'image/jpeg'
-                    elif ext == '.png':
-                        mime_type = 'image/png'
-                    elif ext == '.txt':
-                        mime_type = 'text/plain'
-                    elif ext == '.dcm':
-                        mime_type = 'application/dicom'
+                    if ext == ".pdf":
+                        mime_type = "application/pdf"
+                    elif ext in (".jpg", ".jpeg"):
+                        mime_type = "image/jpeg"
+                    elif ext == ".png":
+                        mime_type = "image/png"
+                    elif ext == ".txt":
+                        mime_type = "text/plain"
+                    elif ext == ".dcm":
+                        mime_type = "application/dicom"
                     else:
-                        mime_type = 'application/octet-stream'
-                
+                        mime_type = "application/octet-stream"
+
                 logger.info(f"Detected MIME type: {mime_type}")
-                
-                with open(path, 'rb') as f:
+
+                with open(path, "rb") as f:
                     file_obj = self.client.files.upload(
-                        file=f,
-                        config=types.UploadFileConfig(mime_type=mime_type)
+                        file=f, config=types.UploadFileConfig(mime_type=mime_type)
                     )
                 logger.info(f"Upload successful. File URI: {file_obj.name}")
                 uploaded_files.append(file_obj)
@@ -84,11 +90,10 @@ class GeminiService:
                         parts=[
                             types.Part(
                                 file_data=types.FileData(
-                                    mime_type=f.mime_type,
-                                    file_uri=f.uri
+                                    mime_type=f.mime_type, file_uri=f.uri
                                 )
                             )
-                        ]
+                        ],
                     )
                 )
 
@@ -103,7 +108,9 @@ class GeminiService:
                     ttl=f"{ttl_seconds}s",
                 ),
             )
-            logger.info(f"Cache created successfully. Name: {cache.name}, Display Name: {getattr(cache, 'display_name', 'N/A')}")
+            logger.info(
+                f"Cache created successfully. Name: {cache.name}, Display Name: {getattr(cache, 'display_name', 'N/A')}"
+            )
             return cache.name
         except Exception as e:
             logger.error(f"Cache creation failed: {e}", exc_info=True)
@@ -149,20 +156,20 @@ class GeminiService:
             logger.error(f"Generate stream failed: {e}")
             yield f"Error: {e}"
 
-
             yield f"Error: {e}"
 
     def find_active_cache(self, user_id: str) -> str | None:
         """
         List active caches and find one belonging to the user.
         """
-        if not self.client: return None
-        
+        if not self.client:
+            return None
+
         try:
             # client.caches.list() returns valid caches
             caches = self.client.caches.list()
             target_name = f"medlm_user_{user_id}"
-            
+
             for cache in caches:
                 # Cache object has .config .name etc? Or direct attrs?
                 # google-genai v0.3: cache has .display_name
@@ -170,16 +177,16 @@ class GeminiService:
                     # Check expiry
                     # API returns 'expire_time' usually as datetime (timezone aware)
                     expire_time = getattr(cache, "expire_time", None)
-                    
+
                     if expire_time:
-                         # Normalize to UTC
-                         now = datetime.datetime.now(datetime.timezone.utc)
-                         # If expire_time is naive, assume UTC or fail safe?
-                         # Usually it is aware.
-                         if expire_time > now:
-                             return cache.name
-                         else:
-                             logger.info(f"Found expired cache {cache.name}, ignoring.")
+                        # Normalize to UTC
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        # If expire_time is naive, assume UTC or fail safe?
+                        # Usually it is aware.
+                        if expire_time > now:
+                            return cache.name
+                        else:
+                            logger.info(f"Found expired cache {cache.name}, ignoring.")
                     else:
                         # No expire time? usage might be unlimited or invalid.
                         # Assume valid if no expire time provided? Or safer to skip.
@@ -190,5 +197,5 @@ class GeminiService:
             logger.error(f"Failed to list caches: {e}")
             return None
 
-gemini_service = GeminiService()
 
+gemini_service = GeminiService()

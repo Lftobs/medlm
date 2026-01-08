@@ -1,29 +1,41 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { motion } from 'framer-motion'
 import { FileText, File, Image as ImageIcon, Filter, Search } from 'lucide-react'
-import { useState } from 'react'
-
+import { getRecords } from '../../lib/api'
+import { useState, useEffect } from 'react'
 export const Route = createFileRoute('/dashboard/records')({
   component: RecordsPage,
 })
 
 function RecordsPage() {
   const [filter, setFilter] = useState('All')
+  const [records, setRecords] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const records = [
-    { id: 1, title: 'Annual Lab Results 2024', date: 'Sep 15, 2024', type: 'Lab', size: '2.4 MB' },
-    { id: 2, title: 'Dermatology Referral', date: 'Aug 02, 2024', type: 'Referral', size: '1.1 MB' },
-    { id: 3, title: 'Chest X-Ray Report', date: 'Jan 10, 2024', type: 'Imaging', size: '15.4 MB' },
-    { id: 4, title: 'Vaccination History', date: 'Oct 24, 2023', type: 'Clinical', size: '0.8 MB' },
-    { id: 5, title: 'Prescription: Amoxicillin', date: 'Jul 12, 2023', type: 'Prescription', size: '0.5 MB' },
-    { id: 6, title: 'Cardiology Consult', date: 'Mar 05, 2023', type: 'Report', size: '3.2 MB' },
-  ]
+  useEffect(() => {
+    getRecords()
+      .then((data) => {
+        setRecords(
+          data.records.map((r: any) => ({
+            id: r.id,
+            title: r.file_name,
+            date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            type: mapFileTypeToCategory(r.file_type), // Map backend type to UI category
+            size: 'Unknown', // Backend doesn't return size yet
+            fileType: r.file_type
+          }))
+        )
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false))
+  }, [])
 
   const filteredRecords = filter === 'All' ? records : records.filter(r => r.type === filter)
 
   return (
     <div className="flex-1 p-6 md:p-8 max-w-6xl mx-auto w-full">
       <div className="flex flex-col gap-6">
+        {loading && <div className="text-center text-slate-500 py-4">Loading records...</div>}
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -97,6 +109,11 @@ function getIconForType(type: string) {
     case 'Prescription': return <File size={24} className="text-green-600" />
     default: return <FileText size={24} className="text-slate-600" />
   }
+}
+function mapFileTypeToCategory(fileType: string) {
+  if (fileType === 'dicom' || fileType === 'image') return 'Imaging'
+  if (fileType === 'pdf') return 'Lab' // Assuming most PDFs are labs/reports
+  return 'Report'
 }
 
 function getBgColorForType(type: string) {

@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List, Optional
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
 # --- Better Auth Tables (Shared) ---
+
 
 class User(SQLModel, table=True):
     __tablename__ = "user"
@@ -14,10 +15,12 @@ class User(SQLModel, table=True):
     image: Optional[str] = None
     createdAt: datetime
     updatedAt: datetime
-    
+
     # Relationships
     records: List["MedicalRecord"] = Relationship(back_populates="user")
-    narratives: List["AnalysisNarrative"] = Relationship(back_populates="user")
+    timeline_events: List["TimelineEvent"] = Relationship(back_populates="user")
+    health_trends: List["HealthTrend"] = Relationship(back_populates="user")
+
 
 class Session(SQLModel, table=True):
     __tablename__ = "session"
@@ -29,6 +32,7 @@ class Session(SQLModel, table=True):
     userAgent: Optional[str] = None
     createdAt: datetime
     updatedAt: datetime
+
 
 class Account(SQLModel, table=True):
     __tablename__ = "account"
@@ -46,6 +50,7 @@ class Account(SQLModel, table=True):
     createdAt: datetime
     updatedAt: datetime
 
+
 class Verification(SQLModel, table=True):
     __tablename__ = "verification"
     id: str = Field(primary_key=True)
@@ -55,7 +60,9 @@ class Verification(SQLModel, table=True):
     createdAt: datetime
     updatedAt: datetime
 
+
 # --- MedLM Specific Tables ---
+
 
 class MedicalRecord(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -66,15 +73,32 @@ class MedicalRecord(SQLModel, table=True):
     mime_type: str
     processed_at: Optional[datetime] = None
     extracted_images: List[str] = Field(default=[], sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     user: User = Relationship(back_populates="records")
 
-class AnalysisNarrative(SQLModel, table=True):
+
+class TimelineEvent(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: str = Field(foreign_key="user.id")
-    content: dict = Field(default_factory=dict, sa_column=Column(JSON))
-    cache_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    analysis_summary: str
+    timeline_summary: str
+    analysis_data: List[dict] = Field(default=[], sa_column=Column(JSON))
 
-    user: User = Relationship(back_populates="narratives")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    user: User = Relationship(back_populates="timeline_events")
+
+
+class HealthTrend(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: str = Field(foreign_key="user.id")
+    trend_summary: str
+    analysis_data: List[dict] = Field(default=[], sa_column=Column(JSON))
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    user: User = Relationship(back_populates="health_trends")
