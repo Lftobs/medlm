@@ -17,14 +17,9 @@ export function useEventStream(onMessage: (event: any) => void) {
           parsedData = JSON.parse(event.data);
           console.log("📦 Parsed SSE Data:", parsedData);
 
-          // Handle timeline_complete event
-          if (parsedData.type === "timeline_complete") {
-            console.log("✅ TIMELINE COMPLETE RECEIVED:", parsedData);
-          }
-
-          // Handle trend_complete event
-          if (parsedData.type === "trend_complete") {
-            console.log("📊 TREND COMPLETE RECEIVED:", parsedData);
+          // Log standardized events
+          if (parsedData.type && parsedData.status) {
+            console.log(`📡 [SSE] ${parsedData.type} (${parsedData.status}): ${parsedData.message}`);
           }
         } catch (e) {
           // keep as string

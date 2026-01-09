@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp,
@@ -7,7 +7,6 @@ import {
   Droplet,
   Scale,
   ThermometerSun,
-  Upload,
   Loader2,
   Sparkles,
   X,
@@ -17,8 +16,8 @@ import {
   Stethoscope,
   User,
 } from "lucide-react";
-import { getTrendsLatest, uploadFiles } from "../../lib/api";
-import { useState, useEffect, useRef } from "react";
+import { getTrendsLatest, simplifyText } from "../../lib/api";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useEventStream } from "../../hooks/use-event-stream";
 
@@ -29,11 +28,11 @@ export const Route = createFileRoute("/dashboard/trends")({
 function TrendsPage() {
   const [trendData, setTrendData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState("Initializing analysis...");
   const [selectedTrend, setSelectedTrend] = useState<any>(null);
   const [isSimplifyingSummary, setIsSimplifyingSummary] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
+
 
   const fetchTrends = async () => {
     try {
@@ -44,6 +43,7 @@ function TrendsPage() {
       setTrendData(null);
     } finally {
       setLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -51,52 +51,71 @@ function TrendsPage() {
     fetchTrends();
   }, []);
 
-  // Listen for SSE trend_complete events
+  // Listen for SSE trend events
   useEventStream((event) => {
-    if (
-      (typeof event === "object" && event.type === "trend_complete") ||
-      (typeof event === "object" && event.status === "trend_complete")
-    ) {
+    if (typeof event !== "object") return;
+
+    // Handle trends_started event
+    if (event.type === "trends_started" || event.status === "trends_started") {
+      setIsAnalyzing(true);
+      setAnalysisMessage("Gathering your health records...");
+    }
+
+    // Handle progress updates (if backend sends them)
+    if (event.type === "trend_update" || event.status === "trend_update") {
+      setAnalysisMessage(event.message || "Analyzing patterns...");
+    }
+
+    // Handle completion
+    if (event.type === "trend_complete" || event.status === "trend_complete") {
       console.log("🎉 Trend analysis complete, refreshing data...");
+      setIsAnalyzing(false);
       toast.success("Trend analysis complete!");
       fetchTrends();
     }
+
+    // Handle failure
+    if (event.type === "trend_failed" || event.status === "trend_failed") {
+      setIsAnalyzing(false);
+      toast.error(event.message || "Trend analysis failed.");
+    }
   });
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setIsUploading(true);
-      try {
-        const files = Array.from(e.target.files);
-        await uploadFiles(files);
 
-        toast.success("Records uploaded successfully! Analysis queue started.");
-        navigate({ to: "/dashboard/records" });
-      } catch (error) {
-        console.error("Upload failed", error);
-        toast.error(
-          `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
-      } finally {
-        setIsUploading(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      }
+  const handleStartAnalysis = async () => {
+    setIsAnalyzing(true);
+    setAnalysisMessage("Starting trend analysis...");
+    try {
+      const { startTrendAnalysis } = await import("../../lib/api");
+      await startTrendAnalysis();
+      setAnalysisMessage("Gemini is reading your records...");
+      // The SSE listener will handle further updates and completion
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to start analysis");
+      setIsAnalyzing(false);
     }
   };
 
-  const handleSimplifySummary = () => {
+  const handleSimplifySummary = async () => {
+    if (!trendData?.trend_summary) return;
     setIsSimplifyingSummary(true);
-    // Simulate API call
-    setTimeout(() => {
-      toast.success("Summary simplified!");
+    try {
+      const result = await simplifyText(trendData.trend_summary);
+      if (result.simplified_text) {
+        setTrendData((prev: any) => ({
+          ...prev,
+          trend_summary: result.simplified_text,
+        }));
+        toast.success("Summary simplified!");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to simplify summary");
+    } finally {
       setIsSimplifyingSummary(false);
-    }, 1500);
+    }
   };
 
   if (loading) {
@@ -107,54 +126,141 @@ function TrendsPage() {
     );
   }
 
-  // --- EMPTY STATE (New User) ---
+  // --- ANALYSIS IN PROGRESS OVERLAY ---
+  const AnalysisOverlay = () => (
+    <AnimatePresence>
+      {isAnalyzing && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-white/95 backdrop-blur-md z-50 flex items-center justify-center flex-col gap-8"
+        >
+          {/* Animated Pulsing Ring */}
+          <div className="relative">
+            <motion.div
+              animate={{
+                scale: [1, 1.3, 1],
+                opacity: [0.4, 0.7, 0.4],
+              }}
+              transition={{
+                duration: 2.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="absolute inset-0 bg-gradient-to-r from-indigo-300 to-purple-300 rounded-full blur-2xl"
+            />
+            <motion.div
+              animate={{
+                scale: [1.1, 1, 1.1],
+                opacity: [0.3, 0.6, 0.3],
+              }}
+              transition={{
+                duration: 2.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 0.5,
+              }}
+              className="absolute inset-[-20px] bg-gradient-to-r from-blue-200 to-indigo-200 rounded-full blur-3xl"
+            />
+            <div className="bg-white p-8 rounded-3xl shadow-2xl relative z-10 border border-indigo-100">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              >
+                <TrendingUp className="w-16 h-16 text-indigo-600" />
+              </motion.div>
+            </div>
+          </div>
+
+          <div className="text-center space-y-4 max-w-md px-6">
+            <motion.h3
+              key={analysisMessage}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600"
+            >
+              Analyzing Trends
+            </motion.h3>
+
+            <motion.p
+              key={analysisMessage + "-desc"}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="text-slate-500 text-lg leading-relaxed"
+            >
+              {analysisMessage}
+            </motion.p>
+          </div>
+
+          {/* Progress Steps */}
+          <div className="w-full max-w-sm space-y-4">
+            <div className="flex justify-between text-xs text-slate-400 font-medium uppercase tracking-wider px-2">
+              <span className="text-indigo-600 font-bold">Collecting</span>
+              <span>Processing</span>
+              <span>Insights</span>
+            </div>
+            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+              <motion.div
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+                initial={{ width: "5%" }}
+                animate={{ width: "85%" }}
+                transition={{ duration: 60, ease: "easeOut" }}
+              />
+            </div>
+            <p className="text-center text-xs text-slate-400 animate-pulse">
+              This may take a few minutes...
+            </p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  // --- EMPTY STATE (New User or No Trends) ---
   if (!trendData) {
     return (
       <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto w-full flex flex-col items-center justify-center min-h-[80vh] text-center">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          multiple
-          accept=".pdf,.jpg,.png,.dcm"
-        />
-        {isUploading && (
-          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center flex-col gap-4">
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-            <p className="text-slate-600 font-medium">
-              Processing your records...
-            </p>
-          </div>
-        )}
+        <AnalysisOverlay />
 
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm max-w-lg w-full"
         >
-          <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600">
+          <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600">
             <TrendingUp size={40} />
           </div>
           <h1 className="text-2xl font-semibold text-slate-900 mb-2">
-            No Health Trends Found
+            No Health Trends Analyzed
           </h1>
           <p className="text-slate-500 mb-8 leading-relaxed">
-            We couldn't find any trend analysis data. Upload your clinical
-            records to generate insights about your health patterns over time.
+            Your clinical records are uploaded, but we haven't analyzed them for trends yet.
+            Start the analysis to uncover patterns in your health history.
           </p>
 
           <button
-            onClick={handleUploadClick}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
+            onClick={handleStartAnalysis}
+            disabled={isAnalyzing}
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <Upload size={18} />
-            Upload Clinical Records
+            {isAnalyzing ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles size={18} />
+                Start Trend Analysis
+              </>
+            )}
           </button>
 
           <p className="text-xs text-slate-400 mt-6 bg-slate-50 py-2 px-3 rounded-lg inline-block border border-slate-100">
             <span className="font-semibold text-slate-500">Note:</span> Trend
-            analysis may take between 5-30min or less.
+            analysis may take ~5 minutes.
           </p>
         </motion.div>
       </div>
@@ -243,6 +349,15 @@ function TrendsPage() {
               trend={trend}
               index={index}
               onViewDetails={() => setSelectedTrend(trend)}
+              onSimplified={(simplifiedText) => {
+                // Update the trend in the local state
+                const updatedTrends = [...trends];
+                updatedTrends[index] = { ...trend, trend: simplifiedText };
+                setTrendData((prev: any) => ({
+                  ...prev,
+                  analysis_data: updatedTrends,
+                }));
+              }}
             />
           ))}
         </div>
@@ -268,27 +383,36 @@ interface TrendCardProps {
   trend: any;
   index: number;
   onViewDetails: () => void;
+  onSimplified?: (simplifiedText: string) => void;
 }
 
-function TrendCard({ trend, index, onViewDetails }: TrendCardProps) {
+function TrendCard({ trend, index, onViewDetails, onSimplified }: TrendCardProps) {
   const [isSimplifying, setIsSimplifying] = useState(false);
-
-  // Handle different data structures
-  const trendText =
-    trend.trend || trend.description || trend.title || "Health trend";
+  const [displayText, setDisplayText] = useState(
+    trend.trend || trend.description || trend.title || "Health trend"
+  );
   const isMajor = trend.is_major || trend.isMajor || false;
 
   const { icon, color, bgColor, borderColor } = getCategoryStyle(
     isMajor ? "major" : "general",
   );
 
-  const handleSimplify = (e: React.MouseEvent) => {
+  const handleSimplify = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsSimplifying(true);
-    setTimeout(() => {
-      toast.success("Trend simplified!");
+    try {
+      const result = await simplifyText(displayText);
+      if (result.simplified_text) {
+        setDisplayText(result.simplified_text);
+        onSimplified?.(result.simplified_text);
+        toast.success("Trend simplified!");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to simplify");
+    } finally {
       setIsSimplifying(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -328,7 +452,7 @@ function TrendCard({ trend, index, onViewDetails }: TrendCardProps) {
 
       {/* Trend Description */}
       <p className="text-sm text-slate-600 leading-relaxed mb-4 line-clamp-3">
-        {trendText}
+        {displayText}
       </p>
 
       {/* Event Count & Actions */}
@@ -365,13 +489,30 @@ interface TrendDetailModalProps {
 
 function TrendDetailModal({ trend, onClose }: TrendDetailModalProps) {
   const [isSimplifying, setIsSimplifying] = useState(false);
+  const [displayTrendText, setDisplayTrendText] = useState(trend?.trend || "");
 
-  const handleSimplify = () => {
+  // Update displayTrendText when trend changes
+  useEffect(() => {
+    if (trend?.trend) {
+      setDisplayTrendText(trend.trend);
+    }
+  }, [trend?.trend]);
+
+  const handleSimplify = async () => {
+    if (!displayTrendText) return;
     setIsSimplifying(true);
-    setTimeout(() => {
-      toast.success("Trend simplified!");
+    try {
+      const result = await simplifyText(displayTrendText);
+      if (result.simplified_text) {
+        setDisplayTrendText(result.simplified_text);
+        toast.success("Trend simplified!");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to simplify");
+    } finally {
       setIsSimplifying(false);
-    }, 1500);
+    }
   };
 
   if (!trend) return null;
@@ -438,7 +579,7 @@ function TrendDetailModal({ trend, onClose }: TrendDetailModalProps) {
                 </button>
               </div>
               <p className="text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-lg border border-slate-200">
-                {trend.trend}
+                {displayTrendText}
               </p>
             </div>
 

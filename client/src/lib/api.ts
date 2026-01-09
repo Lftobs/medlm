@@ -130,23 +130,6 @@ export async function streamChat(
         if (line.startsWith("data: ")) {
           const data = line.slice(6);
           try {
-            // The server sends raw string or json?
-            // Based on chat.py: yield {"data": chunk} -> SSE does data: <content>
-            // But sse-starlette might wrap it.
-            // Let's assume it sends text content directly or wrapped JSON.
-            // Checking chat.py: yield {"data": chunk} where chunk is string.
-            // So data will probably be json string or just string.
-            // actually sse-starlette json encodes the yield dict.
-            // so data: "chunk content" (json string)
-            // OR data: {"some": "json"}
-
-            // Let's try to JSON parse.
-            // Wait, sse-starlette formatting:
-            // event: message
-            // data: "chunk"
-
-            // If chunk is simple string, it might be quote wrapped.
-            // Let's try to parse if it looks like JSON/String, otherwise use raw
             onChunk(JSON.parse(data));
           } catch (e) {
             onChunk(data);
@@ -205,6 +188,30 @@ export async function streamMedlm(
   } catch (error) {
     onError(error instanceof Error ? error.message : "Unknown error");
   }
+}
+
+export async function simplifyText(inputText: string) {
+  const response = await fetch(`${API_BASE_URL}/api/simplify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ input_text: inputText }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Text simplification failed";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch (e) {
+      // Ignore JSON parse error
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
 }
 
 export function getStreamSource() {

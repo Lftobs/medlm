@@ -1,56 +1,68 @@
 import { Link } from '@tanstack/react-router'
 import { Activity } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full glass border-b border-slate-200/50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 group transition-all">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-premium group-hover:scale-105 transition-transform">
-            <Activity className="text-white" size={18} />
+    <motion.header
+      initial={{ y: -100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4"
+    >
+      <div className="flex items-center gap-1 p-1.5 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 shadow-2xl shadow-black/20 rounded-full">
+
+        {/* Logo Section */}
+        <Link to="/" className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-slate-800/50 transition-colors">
+          <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center">
+            <Activity className="text-white" size={14} />
           </div>
-          <span className="text-xl font-bold tracking-tight text-slate-900">
-            Med<span className="text-primary">LM</span>
+          <span className="font-bold tracking-tight text-white text-sm">
+            MedLM
           </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
+        {/* Divider */}
+        <div className="w-px h-6 bg-slate-700 mx-1"></div>
+
+        {/* Nav Links */}
+        <nav className="hidden md:flex items-center">
           <Link
             to="/"
-            className="text-sm font-medium text-slate-600 hover:text-primary transition-colors"
-            activeProps={{ className: 'text-primary' }}
+            className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
           >
             Product
           </Link>
           <Link
             to="/"
-            className="text-sm font-medium text-slate-600 hover:text-primary transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
           >
             Science
           </Link>
           <Link
             to="/"
-            className="text-sm font-medium text-slate-600 hover:text-primary transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
           >
             Security
           </Link>
         </nav>
 
-        <div className="flex items-center gap-4">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1 pl-1">
           <Link
-            to="/"
-            className="px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-full transition-all"
+            to="/login"
+            className="px-5 py-2.5 text-sm font-semibold text-slate-300 hover:text-white transition-colors"
           >
             Log in
           </Link>
           <Link
-            to="/"
-            className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-brand-600 rounded-full shadow-premium transition-all hover:translate-y-[-1px]"
+            to="/login"
+            className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-full transition-all hover:shadow-lg hover:shadow-blue-600/30"
           >
             Get Started
           </Link>
         </div>
       </div>
-    </header>
+    </motion.header>
   )
 }

@@ -175,7 +175,22 @@ function AnalysisPage() {
                   {msg.role === "ai" &&
                     idx === messages.length - 1 &&
                     isTyping && (
-                      <span className="inline-block w-2 H-2 bg-blue-400 rounded-full animate-pulse ml-2"></span>
+                      <div className="flex items-center gap-2 mt-2 text-blue-600">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                          <div
+                            className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.1s" }}
+                          ></div>
+                          <div
+                            className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.2s" }}
+                          ></div>
+                        </div>
+                        <span className="text-xs font-medium">
+                          AI is thinking...
+                        </span>
+                      </div>
                     )}
                 </div>
               </div>

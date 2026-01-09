@@ -21,13 +21,15 @@ class Settings(BaseSettings):
 
     STORAGE_DIR: str = "./storage/uploads"
     EMBEDDING_MODEL: str = "Qwen/Qwen3-Embedding-0.6B"
-    QDRANT_URL: str = "http://localhost:6379"
+    QDRANT_URL: str = "http://localhost:6333"
 
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
-    GEMINI_API_KEY: Optional[str] = None
-    MEM_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: str | None = None
+    MEM_API_KEY: str | None = None
+
+    DEBUG: bool = True
 
 
 settings = Settings()

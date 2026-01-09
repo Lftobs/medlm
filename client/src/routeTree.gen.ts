@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardTrendsRouteImport } from './routes/dashboard/trends'
 import { Route as DashboardTimelineRouteImport } from './routes/dashboard/timeline'
+import { Route as DashboardSimplifyRouteImport } from './routes/dashboard/simplify'
 import { Route as DashboardRecordsRouteImport } from './routes/dashboard/records'
 import { Route as DashboardChatRouteImport } from './routes/dashboard/chat'
 import { Route as DashboardRecordsRecordIdRouteImport } from './routes/dashboard/records/$recordId'
@@ -50,6 +51,11 @@ const DashboardTimelineRoute = DashboardTimelineRouteImport.update({
   path: '/timeline',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardSimplifyRoute = DashboardSimplifyRouteImport.update({
+  id: '/simplify',
+  path: '/simplify',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardRecordsRoute = DashboardRecordsRouteImport.update({
   id: '/records',
   path: '/records',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/records': typeof DashboardRecordsRouteWithChildren
+  '/dashboard/simplify': typeof DashboardSimplifyRoute
   '/dashboard/timeline': typeof DashboardTimelineRoute
   '/dashboard/trends': typeof DashboardTrendsRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/records': typeof DashboardRecordsRouteWithChildren
+  '/dashboard/simplify': typeof DashboardSimplifyRoute
   '/dashboard/timeline': typeof DashboardTimelineRoute
   '/dashboard/trends': typeof DashboardTrendsRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/records': typeof DashboardRecordsRouteWithChildren
+  '/dashboard/simplify': typeof DashboardSimplifyRoute
   '/dashboard/timeline': typeof DashboardTimelineRoute
   '/dashboard/trends': typeof DashboardTrendsRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/chat'
     | '/dashboard/records'
+    | '/dashboard/simplify'
     | '/dashboard/timeline'
     | '/dashboard/trends'
     | '/dashboard/'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/chat'
     | '/dashboard/records'
+    | '/dashboard/simplify'
     | '/dashboard/timeline'
     | '/dashboard/trends'
     | '/dashboard'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/chat'
     | '/dashboard/records'
+    | '/dashboard/simplify'
     | '/dashboard/timeline'
     | '/dashboard/trends'
     | '/dashboard/'
@@ -197,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTimelineRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/simplify': {
+      id: '/dashboard/simplify'
+      path: '/simplify'
+      fullPath: '/dashboard/simplify'
+      preLoaderRoute: typeof DashboardSimplifyRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/records': {
       id: '/dashboard/records'
       path: '/records'
@@ -242,6 +261,7 @@ const DashboardRecordsRouteWithChildren =
 interface DashboardRouteChildren {
   DashboardChatRoute: typeof DashboardChatRoute
   DashboardRecordsRoute: typeof DashboardRecordsRouteWithChildren
+  DashboardSimplifyRoute: typeof DashboardSimplifyRoute
   DashboardTimelineRoute: typeof DashboardTimelineRoute
   DashboardTrendsRoute: typeof DashboardTrendsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -250,6 +270,7 @@ interface DashboardRouteChildren {
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardChatRoute: DashboardChatRoute,
   DashboardRecordsRoute: DashboardRecordsRouteWithChildren,
+  DashboardSimplifyRoute: DashboardSimplifyRoute,
   DashboardTimelineRoute: DashboardTimelineRoute,
   DashboardTrendsRoute: DashboardTrendsRoute,
   DashboardIndexRoute: DashboardIndexRoute,

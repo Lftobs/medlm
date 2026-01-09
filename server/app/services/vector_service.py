@@ -14,13 +14,27 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+class ScoredResult:
+    """Wrapper class to ensure consistent score attribute access for search results."""
+
+    def __init__(self, point, score):
+        self.point = point
+        self.score = score
+        self.id = point.id
+        self.payload = point.payload
+        self.vector = getattr(point, "vector", None)
+        self.shard_key = getattr(point, "shard_key", None)
+        self.order_value = getattr(point, "order_value", None)
+        self.version = getattr(point, "version", None)
+
+
 class VectorService:
     def __init__(self, url: str = None):
         if url is None:
             url = settings.QDRANT_URL
         self.client = QdrantClient(url=url)
         logger.info(f"Connecting to Qdrant at {url}")
-        # self.create_collection("clinical_records", 1024)
+        self.create_collection("clinical_records", 1024)
 
     def create_collection(
         self,
@@ -112,41 +126,94 @@ class VectorService:
     ):
         """
         Perform hybrid search combining vector similarity and full-text search.
-        Uses RRF (Reciprocal Rank Fusion) to merge results.
+        Uses simple RRF (Reciprocal Rank Fusion) to merge results from both searches.
         """
         try:
-            results = self.client.query_points(
+            # Perform vector search
+            vector_results = self.client.query_points(
                 collection_name=collection_name,
-                prefetch=[
-                    # Vector similarity search
-                    {
-                        "query": query_vector,
-                        "limit": limit * 2,  # Get more candidates for fusion
-                    },
-                    # Full-text search
-                    {
-                        "query": {
-                            "text": {
-                                "text": query_text,
-                            }
-                        },
-                        "using": "text",
-                        "limit": limit * 2,
-                    },
-                ],
-                query={
-                    "fusion": "rrf"  # Reciprocal Rank Fusion
-                },
-                limit=limit,
+                query=query_vector,
+                limit=limit * 2,  # Get more candidates for fusion
                 score_threshold=score_threshold,
                 with_payload=True,
             )
-            return results.points
+
+            # Perform text-based scroll to find matching documents
+            # Using scroll with text filter for keyword matching
+            text_results = []
+            try:
+                # Split query text into keywords
+                keywords = query_text.lower().split()
+                if keywords:
+                    # Scroll through collection and filter by text content
+                    scroll_result = self.client.scroll(
+                        collection_name=collection_name,
+                        limit=limit * 2,
+                        with_payload=True,
+                        with_vectors=False,
+                    )
+
+                    # Filter results that contain any of the keywords
+                    for point in scroll_result[0]:
+                        text_content = point.payload.get("text", "").lower()
+                        if any(keyword in text_content for keyword in keywords):
+                            text_results.append(point)
+                            if len(text_results) >= limit * 2:
+                                break
+            except Exception as text_error:
+                logger.warning(
+                    f"Text search failed: {text_error}, using vector-only results"
+                )
+
+            # Merge results using RRF (Reciprocal Rank Fusion)
+            merged = self._rrf_merge(
+                vector_results.points,
+                text_results,
+                limit=limit,
+                k=60,  # RRF constant
+            )
+
+            return merged
+
         except Exception as e:
             logger.error(f"Error in hybrid search for '{collection_name}': {e}")
-            # Fallback to vector-only search
-            logger.info("Falling back to vector-only search")
+            # Fallback to basic vector search
+            logger.info("Falling back to basic vector search")
             return self.search(collection_name, query_vector, limit, score_threshold)
+
+    def _rrf_merge(self, vector_results, text_results, limit, k=60):
+        """
+        Merge results using Reciprocal Rank Fusion.
+        RRF score = sum(1 / (k + rank)) for each result list
+        Returns points with RRF scores attached as attributes.
+        """
+        scores = {}
+
+        # Add vector search scores
+        for rank, point in enumerate(vector_results, start=1):
+            point_id = point.id
+            rrf_score = 1.0 / (k + rank)
+            scores[point_id] = {"point": point, "score": rrf_score}
+
+        # Add text search scores
+        for rank, point in enumerate(text_results, start=1):
+            point_id = point.id
+            rrf_score = 1.0 / (k + rank)
+            if point_id in scores:
+                scores[point_id]["score"] += rrf_score
+            else:
+                scores[point_id] = {"point": point, "score": rrf_score}
+
+        # Sort by combined RRF score
+        sorted_results = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
+
+        # Return top results wrapped in ScoredResult for consistent interface
+        results = []
+        for item in sorted_results[:limit]:
+            scored_result = ScoredResult(item["point"], item["score"])
+            results.append(scored_result)
+
+        return results
 
 
 def chunk_text(text, size=512, overlap=50):

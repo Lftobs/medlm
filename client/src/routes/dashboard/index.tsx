@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { uploadFiles, getTimeline } from "../../lib/api";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload,
   Sparkles,
@@ -16,6 +16,7 @@ import {
 import { User as UserIcon } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useEventStream } from "../../hooks/use-event-stream";
+import { AnalysisOverlay } from "../../components/AnalysisOverlay";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardOverview,
@@ -23,17 +24,17 @@ export const Route = createFileRoute("/dashboard/")({
 
 function DashboardOverview() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [status, setStatus] = useState<"IDLE" | "UPLOADING" | "PROCESSING_RECORDS" | "ANALYZING_TIMELINE">("IDLE");
+  const [processingMessage, setProcessingMessage] = useState("Initializing...");
+  const [logs, setLogs] = useState<string[]>([]);
   const [timelineData, setTimelineData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const navigate = useNavigate();
 
   const fetchTimeline = () => {
     setLoading(true);
     getTimeline()
       .then((data) => {
-        // data can be null (no timeline yet) or timeline object
         if (data && (data.timeline_summary || data.analysis_summary)) {
           setTimelineData(data);
         } else {
@@ -51,35 +52,42 @@ function DashboardOverview() {
     fetchTimeline();
   }, []);
 
-  // Listen for SSE events to refetch timeline when complete
+  // Listen for SSE events to handle the granular analysis flow
   useEventStream((data) => {
-    if (typeof data === "object" && data.type === "timeline_complete") {
-      console.log("🔄 Timeline complete event received, refetching data...");
-      setIsAnalyzing(false);
-      toast.success(
-        "Timeline analysis complete! Loading your health narrative...",
-      );
-      // Refetch timeline data to show populated dashboard
-      fetchTimeline();
-    } else if (
-      typeof data === "object" &&
-      data.status === "timeline_complete"
-    ) {
-      // Handle status-based events from worker
-      console.log("🔄 Timeline analysis status update:", data);
-      setIsAnalyzing(false);
-      fetchTimeline();
-    } else if (
-      typeof data === "object" &&
-      data.message &&
-      data.message.includes("Timeline")
-    ) {
-      // Handle progress messages
-      if (
-        data.message.includes("started") ||
-        data.message.includes("analyzing")
-      ) {
-        setIsAnalyzing(true);
+    if (typeof data !== "object") return;
+
+    // Handle file processing events
+    if (data.type === "file-operation") {
+      if (data.status === "error") {
+        console.error("File operation error:", data.message);
+        toast.error(data.message || "Error processing file");
+        setStatus("IDLE");
+        setLogs((prev) => [...prev, `❌ Error: ${data.message}`]);
+      } else {
+        setStatus("PROCESSING_RECORDS");
+        setProcessingMessage(data.message || "Processing your documents...");
+        setLogs((prev) => [...prev, `📄 ${data.message}`]);
+      }
+    }
+
+    // Handle timeline/trend analysis events
+    if (data.type === "timeline" || data.type === "trend") {
+      if (data.status === "error") {
+        console.error("Analysis error:", data.message);
+        toast.error(data.message || "Analysis failed");
+        setStatus("IDLE");
+        setLogs((prev) => [...prev, `❌ Error: ${data.message}`]);
+      } else if (data.status === "success") {
+        console.log("🔄 Analysis complete:", data);
+        setStatus("IDLE");
+        toast.success(data.message);
+        setLogs([]); // Clear logs
+        fetchTimeline();
+      } else if (data.status === "started" || data.status === "in_progress") {
+        // In progress
+        setStatus("ANALYZING_TIMELINE");
+        setProcessingMessage(data.message || "Analyzing health patterns...");
+        setLogs((prev) => [...prev, `🩺 ${data.message}`]);
       }
     }
   });
@@ -90,22 +98,25 @@ function DashboardOverview() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setIsUploading(true);
+      setStatus("UPLOADING");
+      setLogs(["🚀 Starting secure upload..."]);
       try {
         const files = Array.from(e.target.files);
         await uploadFiles(files);
 
-        toast.success("Records uploaded successfully! Analysis queue started.");
-        // In a real app we would invalidate queries here to refresh the list
-        navigate({ to: "/dashboard/records" });
+        toast.success("Upload complete. Starting analysis...");
+        setLogs((prev) => [...prev, "✅ Upload complete", "🔄 Initializing analysis queue..."]);
+        // Transition to processing state immediately after upload success
+        // The SSE events will refine this state shortly
+        setStatus("PROCESSING_RECORDS");
       } catch (error) {
         console.error("Upload failed", error);
         toast.error(
           `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
+        setStatus("IDLE");
+        setLogs([]);
       } finally {
-        setIsUploading(false);
-        // Reset input value so same file can be selected again if needed
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -121,10 +132,10 @@ function DashboardOverview() {
       id: idx,
       date: e.date
         ? new Date(e.date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
         : "N/A",
       title: e.event || e.title || "Medical Event",
       type: e.type || e.category || "Other",
@@ -140,6 +151,7 @@ function DashboardOverview() {
     );
   }
 
+
   // --- EMPTY STATE (New User) ---
   if (!timelineData) {
     return (
@@ -152,50 +164,135 @@ function DashboardOverview() {
           multiple // Enable multi-file
           accept=".pdf,.jpg,.png,.dcm"
         />
-        {(isUploading || isAnalyzing) && (
-          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center flex-col gap-4">
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-            <p className="text-slate-600 font-medium">
-              {isAnalyzing
-                ? "Analyzing your medical timeline..."
-                : "Processing your records..."}
-            </p>
-            {isAnalyzing && (
-              <p className="text-slate-500 text-sm">
-                This may take a few minutes
-              </p>
-            )}
-          </div>
-        )}
+        <AnimatePresence>
+          {status !== "IDLE" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-white/95 backdrop-blur-md z-50 flex items-center justify-center flex-col gap-8"
+            >
+              {/* Animated Icon Container */}
+              <div className="relative">
+                <motion.div
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.5, 0.8, 0.5],
+                    rotate: 360,
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Number.POSITIVE_INFINITY,
+                    ease: "linear",
+                  }}
+                  className="absolute inset-0 bg-gradient-to-r from-blue-300 to-indigo-300 rounded-full blur-2xl opacity-50"
+                />
+                <div className="bg-white p-6 rounded-2xl shadow-xl relative z-10 border border-blue-100">
+                  {status === "UPLOADING" ? (
+                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                  ) : status === "PROCESSING_RECORDS" ? (
+                    <FileText className="w-12 h-12 text-indigo-600 animate-pulse" />
+                  ) : (
+                    <Sparkles className="w-12 h-12 text-purple-600 animate-pulse" />
+                  )}
+                </div>
+              </div>
+
+              <div className="text-center space-y-3 max-w-md px-6">
+                <motion.h3
+                  key={status}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600"
+                >
+                  {status === "UPLOADING" && "Securing Records..."}
+                  {status === "PROCESSING_RECORDS" && "Reading Documents..."}
+                  {status === "ANALYZING_TIMELINE" && "Connecting the Dots..."}
+                </motion.h3>
+
+                <motion.p
+                  key={processingMessage}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-slate-500 text-lg leading-relaxed"
+                >
+                  {status === "UPLOADING"
+                    ? "Encrypting your data and sending it to our secure vault."
+                    : processingMessage
+                  }
+                </motion.p>
+              </div>
+
+              {/* Progress Indicators */}
+              <div className="w-full max-w-xs space-y-3">
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
+                    initial={{ width: "0%" }}
+                    animate={{
+                      width: status === "UPLOADING" ? "30%" : status === "PROCESSING_RECORDS" ? "60%" : "90%",
+                      transition: {
+                        duration: 1,
+                        ease: "easeInOut"
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-slate-400 font-medium uppercase tracking-wider">
+                  <span className={status === "UPLOADING" ? "text-blue-600 font-bold" : ""}>Upload</span>
+                  <span className={status === "PROCESSING_RECORDS" ? "text-indigo-600 font-bold" : ""}>Process</span>
+                  <span className={status === "ANALYZING_TIMELINE" ? "text-purple-600 font-bold" : ""}>Analyze</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm max-w-lg w-full"
+          transition={{ duration: 0.5 }}
+          className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 max-w-lg w-full relative overflow-hidden group"
         >
-          <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600">
-            <Upload size={40} />
-          </div>
-          <h1 className="text-2xl font-semibold text-slate-900 mb-2">
+          {/* Background decoration */}
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500" />
+          <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
+          <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
+
+
+          <motion.div
+            whileHover={{ scale: 1.05, rotate: 5 }}
+            className="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-8 text-blue-600 shadow-lg shadow-blue-100"
+          >
+            <Upload size={48} strokeWidth={1.5} />
+          </motion.div>
+
+          <h1 className="text-3xl font-bold text-slate-900 mb-3 tracking-tight">
             Welcome to MedLM
           </h1>
-          <p className="text-slate-500 mb-8 leading-relaxed">
-            To generate your health narrative and timeline, please upload your
-            clinical records (PDFs, Images, DICOM).
+          <p className="text-slate-600 mb-10 leading-relaxed text-lg">
+            Let's build your health timeline. Upload your clinical records (PDFs, Images, DICOM) to get started.
           </p>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleUploadClick}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
+            className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-lg transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-500/20"
           >
-            <Upload size={18} />
+            <Upload size={20} />
             Upload Clinical Records
-          </button>
+          </motion.button>
 
-          <p className="text-xs text-slate-400 mt-6 bg-slate-50 py-2 px-3 rounded-lg inline-block border border-slate-100">
-            <span className="font-semibold text-slate-500">Note:</span> Timeline
-            scan may take between 5-30min or less.
-          </p>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-400 bg-slate-50 py-3 px-4 rounded-full inline-flex border border-slate-100"
+          >
+            <Sparkles size={14} className="text-amber-400" />
+            <span><span className="font-semibold text-slate-500">Pro Tip:</span> Analysis takes ~5 minutes.</span>
+          </motion.div>
         </motion.div>
       </div>
     );
@@ -215,21 +312,15 @@ function DashboardOverview() {
       />
 
       {/* Upload overlay */}
-      {(isUploading || isAnalyzing) && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center flex-col gap-4">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-          <p className="text-slate-600 font-medium">
-            {isAnalyzing
-              ? "Analyzing your medical timeline..."
-              : "Processing your records..."}
-          </p>
-          {isAnalyzing && (
-            <p className="text-slate-500 text-sm">
-              This may take a few minutes
-            </p>
-          )}
-        </div>
-      )}
+      <AnimatePresence>
+        {status !== "IDLE" && (
+          <AnalysisOverlay
+            status={status}
+            message={processingMessage}
+            logs={logs}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="flex flex-col gap-8">
         {/* Welcome Section */}
