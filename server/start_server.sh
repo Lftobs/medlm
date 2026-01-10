@@ -17,16 +17,9 @@ fi
 
 export PYTHONPATH=.
 
-echo "Checking database migrations..."
-CURRENT=$(PYTHONPATH=. uv run alembic current 2>/dev/null || echo "none")
-HEAD=$(PYTHONPATH=. uv run alembic heads 2>/dev/null | head -1 | awk '{print $1}')
-
-if [ "$CURRENT" = "$HEAD" ]; then
-    echo "Database is already up to date."
-else
-    echo "Running database migrations..."
+echo "Running database migrations..."
     PYTHONPATH=. uv run alembic upgrade head
-fi
+
 
 echo "Starting Celery worker..."
 PYTHONPATH=. uv run celery -A app.core.celery_app worker --loglevel=info &
