@@ -58,7 +58,6 @@ def process_medical_record(record_id: str, user_id: str):
         try:
             file_path = storage_service.get_file_path(record.s3_key)
 
-            # 1. EMIT START PROCESSING EVENT
             stream_service.publish_sync(
                 f"user:{user_id}:status",
                 {
