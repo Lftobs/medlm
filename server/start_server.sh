@@ -10,8 +10,10 @@ if ! command -v uv &> /dev/null; then
     exit 1
 fi
 
+cd server
+
 if [ ! -f "app/main.py" ]; then
-    echo "Error: app/main.py not found. Please run this script from the server/ directory."
+    echo "Error: app/main.py not found. Please ensure you're running from the project root."
     exit 1
 fi
 
