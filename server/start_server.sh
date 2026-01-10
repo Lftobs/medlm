@@ -15,6 +15,9 @@ if [ ! -f "app/main.py" ]; then
     exit 1
 fi
 
+echo "Running database migrations..."
+uv run alembic upgrade head
+
 echo "Starting Celery worker..."
 uv run celery -A app.core.celery_app worker --loglevel=info &
 CELERY_PID=$!
