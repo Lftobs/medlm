@@ -15,15 +15,25 @@ if [ ! -f "app/main.py" ]; then
     exit 1
 fi
 
-export PYTHONPATH=.
-ls -al /opt/render/project/src
+# Set PYTHONPATH to server directory for module imports
+export PYTHONPATH=server
 
-echo "Running database migrations..."
-    PYTHONPATH=. uv run alembic upgrade head
+echo "Checking database migrations..."
+cd server
+CURRENT=$(uv run alembic current 2>/dev/null || echo "none")
+HEAD=$(uv run alembic heads 2>/dev/null | head -1 | awk '{print $1}')
+
+if [ "$CURRENT" = "$HEAD" ]; then
+    echo "Database is already up to date."
+else
+    echo "Running database migrations..."
+    uv run alembic upgrade head
+fi
+cd ..
 
 
 echo "Starting Celery worker..."
-PYTHONPATH=. uv run celery -A app.core.celery_app worker --loglevel=info &
+PYTHONPATH=server uv run celery -A app.core.celery_app worker --loglevel=info &
 CELERY_PID=$!
 
 cleanup() {
@@ -36,6 +46,6 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting FastAPI server..."
-PYTHONPATH=. uv run uvicorn --app-dir . app.main:app --host 0.0.0.0 --port 8000 --reload
+PYTHONPATH=server uv run uvicorn --app-dir server app.main:app --host 0.0.0.0 --port 8000 --reload
 
 echo "Server stopped."
