@@ -17,11 +17,19 @@ fi
 
 export PYTHONPATH=.
 
-echo "Running database migrations..."
-uv run alembic upgrade head
+echo "Checking database migrations..."
+CURRENT=$(PYTHONPATH=. uv run alembic current 2>/dev/null || echo "none")
+HEAD=$(PYTHONPATH=. uv run alembic heads 2>/dev/null | head -1 | awk '{print $1}')
+
+if [ "$CURRENT" = "$HEAD" ]; then
+    echo "Database is already up to date."
+else
+    echo "Running database migrations..."
+    PYTHONPATH=. uv run alembic upgrade head
+fi
 
 echo "Starting Celery worker..."
-uv run celery -A app.core.celery_app worker --loglevel=info &
+PYTHONPATH=. uv run celery -A app.core.celery_app worker --loglevel=info &
 CELERY_PID=$!
 
 cleanup() {
@@ -34,6 +42,6 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting FastAPI server..."
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+PYTHONPATH=. uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 echo "Server stopped."
