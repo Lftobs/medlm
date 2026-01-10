@@ -11,9 +11,8 @@ if ! command -v uv &> /dev/null; then
 fi
 
 
-ls -al server
+ls -al
 
-cd server
 
 if [ ! -f "app/main.py" ]; then
     echo "Error: app/main.py not found. Please run this script from the server/ directory."
