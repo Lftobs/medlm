@@ -32,7 +32,7 @@ class VectorService:
     def __init__(self, url: str = None):
         if url is None:
             url = settings.QDRANT_URL
-        self.client = QdrantClient(url=url)
+        self.client = QdrantClient(url=url, api_key=settings.QDRANT_KEY)
         logger.info(f"Connecting to Qdrant at {url}")
         self.create_collection("clinical_records", 1024)
 
