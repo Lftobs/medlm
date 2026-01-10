@@ -16,6 +16,7 @@ if [ ! -f "app/main.py" ]; then
 fi
 
 export PYTHONPATH=.
+ls -al /opt/render/project/src
 
 echo "Running database migrations..."
     PYTHONPATH=. uv run alembic upgrade head
@@ -35,6 +36,6 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting FastAPI server..."
-PYTHONPATH=. uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+PYTHONPATH=. uv run uvicorn --app-dir . app.main:app --host 0.0.0.0 --port 8000 --reload
 
 echo "Server stopped."
