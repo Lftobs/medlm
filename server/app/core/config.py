@@ -9,12 +9,6 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
 
-    BETTER_AUTH_SECRET: str = ""
-    BETTER_AUTH_URL: str = "http://localhost:3000"
-
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-
     PROJECT_NAME: str = "MedLM API"
 
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
@@ -22,6 +16,7 @@ class Settings(BaseSettings):
     STORAGE_DIR: str = "./storage/uploads"
     EMBEDDING_MODEL: str = "Qwen/Qwen3-Embedding-0.6B"
     QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_KEY: str = ""
 
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
