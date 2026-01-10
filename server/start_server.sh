@@ -15,11 +15,10 @@ if [ ! -f "app/main.py" ]; then
     exit 1
 fi
 
-# Set PYTHONPATH to server directory for module imports
+
 export PYTHONPATH=server
 
 echo "Checking database migrations..."
-cd server
 CURRENT=$(uv run alembic current 2>/dev/null || echo "none")
 HEAD=$(uv run alembic heads 2>/dev/null | head -1 | awk '{print $1}')
 
@@ -29,8 +28,6 @@ else
     echo "Running database migrations..."
     uv run alembic upgrade head
 fi
-cd ..
-
 
 echo "Starting Celery worker..."
 PYTHONPATH=server uv run celery -A app.core.celery_app worker --loglevel=info &
