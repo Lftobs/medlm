@@ -11,9 +11,7 @@ if ! command -v uv &> /dev/null; then
 fi
 
 
-if [ -d ".venv" ]; then
-    mv .venv server/
-fi
+ls -al server
 
 cd server
 
