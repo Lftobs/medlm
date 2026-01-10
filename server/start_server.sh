@@ -16,7 +16,8 @@ if [ ! -f "app/main.py" ]; then
 fi
 
 
-export PYTHONPATH=server
+export PYTHONPATH=/opt/render/project/src/server
+
 
 echo "Checking database migrations..."
 CURRENT=$(uv run alembic current 2>/dev/null || echo "none")
@@ -30,7 +31,7 @@ else
 fi
 
 echo "Starting Celery worker..."
-PYTHONPATH=server uv run celery -A app.core.celery_app worker --loglevel=info &
+uv run celery -A app.core.celery_app worker --loglevel=info &
 CELERY_PID=$!
 
 cleanup() {
@@ -41,3 +42,8 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+echo "Starting FastAPI server..."
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+echo "Server stopped."

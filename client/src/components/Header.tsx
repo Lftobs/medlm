@@ -1,6 +1,6 @@
-import { Link } from '@tanstack/react-router'
-import { Activity } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Link } from "@tanstack/react-router";
+import { Activity } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Header() {
   return (
@@ -11,9 +11,11 @@ export default function Header() {
       className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4"
     >
       <div className="flex items-center gap-1 p-1.5 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 shadow-2xl shadow-black/20 rounded-full">
-
         {/* Logo Section */}
-        <Link to="/" className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-slate-800/50 transition-colors">
+        <Link
+          to="/"
+          className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-slate-800/50 transition-colors"
+        >
           <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center">
             <Activity className="text-white" size={14} />
           </div>
@@ -26,7 +28,7 @@ export default function Header() {
         <div className="w-px h-6 bg-slate-700 mx-1"></div>
 
         {/* Nav Links */}
-        <nav className="hidden md:flex items-center">
+        {/*<nav className="hidden md:flex items-center">
           <Link
             to="/"
             className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
@@ -45,7 +47,7 @@ export default function Header() {
           >
             Security
           </Link>
-        </nav>
+        </nav>*/}
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1 pl-1">
@@ -64,5 +66,5 @@ export default function Header() {
         </div>
       </div>
     </motion.header>
-  )
+  );
 }
