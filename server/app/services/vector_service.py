@@ -30,11 +30,20 @@ class ScoredResult:
 
 class VectorService:
     def __init__(self, url: str = None):
-        if url is None:
-            url = settings.QDRANT_URL
-        self.client = QdrantClient(url=url, api_key=settings.QDRANT_KEY)
-        logger.info(f"Connecting to Qdrant at {url}")
-        self.create_collection("clinical_records", 1024)
+        # Don't connect on import - wait until first use (lazy loading)
+        self.url = url if url is not None else settings.QDRANT_URL
+        self.client = None
+        self._initialized = False
+
+    def _ensure_initialized(self):
+        """Ensure Qdrant client is initialized before use."""
+        if not self._initialized:
+            logger.info(
+                f"Lazy-loading vector service, connecting to Qdrant at {self.url}"
+            )
+            self.client = QdrantClient(url=self.url, api_key=settings.QDRANT_KEY)
+            self.create_collection("clinical_records", 1024)
+            self._initialized = True
 
     def create_collection(
         self,
@@ -84,6 +93,7 @@ class VectorService:
         """
         Upsert multiple vectors with payload.
         """
+        self._ensure_initialized()
         try:
             self.client.upsert(
                 collection_name=collection_name,
@@ -104,6 +114,7 @@ class VectorService:
         """
         Search for similar vectors.
         """
+        self._ensure_initialized()
         try:
             results = self.client.query_points(
                 collection_name=collection_name,
@@ -128,6 +139,7 @@ class VectorService:
         Perform hybrid search combining vector similarity and full-text search.
         Uses simple RRF (Reciprocal Rank Fusion) to merge results from both searches.
         """
+        self._ensure_initialized()
         try:
             # Perform vector search
             vector_results = self.client.query_points(

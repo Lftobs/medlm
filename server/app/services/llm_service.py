@@ -1,6 +1,6 @@
 import dspy
 from app.core.config import settings
-from app.core.model_manager import get_embedding_model
+from app.core.utils import get_embedding_model
 from .llm.signatures import (
     TimelineAnalysisSignature,
     TrendAnalysisSignature,
@@ -42,8 +42,15 @@ class LLMService:
         dspy.configure(lm=cls._lm)
 
     def __init__(self):
-        self._initialize_dspy()
         self.memory_service = memory_service
+        self._initialized = False
+
+    def _ensure_initialized(self):
+        """Ensure DSPy is initialized before use."""
+        if not self._initialized:
+            logger.info("Lazy-loading LLM service...")
+            self._initialize_dspy()
+            self._initialized = True
 
     @classmethod
     def cleanup(cls):
@@ -70,6 +77,7 @@ class LLMService:
         Yields:
             String chunks of the response
         """
+        self._ensure_initialized()
         try:
             memory_results = self.memory_service.search_combined_memory(
                 user_id, message
@@ -159,16 +167,19 @@ class LLMService:
 
     def analyze_trends(self, record_input: str):
         """Analyze trends from the clinical records."""
+        self._ensure_initialized()
         prediction = self._trend_predictor(record_input=record_input)
         return prediction
 
     def extract_timeline(self, record_input: str):
         """Extract timeline from the clinical records."""
+        self._ensure_initialized()
         prediction = self._timeline_predictor(record_input=record_input)
         return prediction
 
     def simplify_text(self, input_text: str):
         """Simplify complex medical text for layman understanding."""
+        self._ensure_initialized()
         prediction = self._text_simplification_predictor(input_text=input_text)
         return prediction
 

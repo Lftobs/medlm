@@ -36,7 +36,6 @@ async def chat_with_context(
 
     async def event_generator():
         try:
-            # Stream response from chat_medlm
             full_response = ""
             chunk_count = 0
 
@@ -78,7 +77,6 @@ async def chat_medlm_stream(
 
     async def event_generator():
         try:
-            # Stream response from chat_medlm
             full_response = ""
             chunk_count = 0
 

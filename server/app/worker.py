@@ -16,30 +16,12 @@ from datetime import datetime, UTC
 from app.services.llm_service import llm_service
 from app.services.storage import storage_service
 from app.services.stream_service import stream_service
-import asyncio
 import logging
 from pathlib import Path
-from app.core.model_manager import (
-    get_embedding_model,
-    encode_texts,
-    cleanup_model,
-    get_model_context,
-)
-from app.core.config import settings
-import os
+from app.core.utils import get_embedding_model, encode_texts
+
 
 logger = logging.getLogger(__name__)
-
-
-@worker_process_shutdown.connect
-def cleanup_model_on_shutdown(**kwargs):
-    """Clean up model resources when worker process shuts down."""
-    logger.info("Worker process shutting down, cleaning up model resources...")
-    try:
-        cleanup_model()
-        logger.info("Model and environment cleanup completed successfully")
-    except Exception as e:
-        logger.error(f"Error during model cleanup: {e}")
 
 
 @celery_app.task(name="app.worker.process_medical_record")
@@ -97,15 +79,17 @@ def process_medical_record(record_id: str, user_id: str):
                 )
 
                 logger.info("Chunking text semantically...")
-                with get_model_context() as model:
-                    chunks = semantic_chunk_text(text, model)
-                    logger.info(f"Text chunked into {len(chunks)} chunks")
-                    logger.info("Encoding chunks to embeddings...")
 
-                    docs_emb = encode_texts(
-                        chunks,
-                        batch_size=32,
-                    )
+                model = get_embedding_model()
+
+                chunks = semantic_chunk_text(text, model)
+                logger.info(f"Text chunked into {len(chunks)} chunks")
+                logger.info("Encoding chunks to embeddings...")
+
+                docs_emb = encode_texts(
+                    chunks,
+                    batch_size=32,
+                )
 
                 stream_service.publish_sync(
                     f"user:{user_id}:status",

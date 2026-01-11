@@ -33,7 +33,7 @@ def cleanup_on_worker_shutdown(sender=None, **kwargs):
     """Clean up resources when Celery worker shuts down."""
     logger.info("Celery worker shutting down, cleaning up resources...")
     try:
-        from app.core.model_manager import cleanup_model
+        from app.main import cleanup_model
 
         cleanup_model()
         logger.info("Successfully cleaned up model resources")
@@ -46,7 +46,7 @@ def cleanup_on_process_shutdown(sender=None, **kwargs):
     """Clean up resources when worker process shuts down."""
     logger.info("Celery worker process shutting down...")
     try:
-        from app.core.model_manager import cleanup_model
+        from app.main import cleanup_model
 
         cleanup_model()
         logger.info("Successfully cleaned up process resources")

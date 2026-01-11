@@ -1,7 +1,7 @@
 from mem0 import MemoryClient
 from app.core.config import settings
 from app.services.vector_service import vector_service
-from app.core.model_manager import encode_texts
+from app.core.utils import encode_texts
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,14 @@ class MemoryService:
             cls._mem = MemoryClient(api_key=settings.MEM_API_KEY)
 
     def __init__(self):
-        self._initialize_memory()
+        self._initialized = False
+
+    def _ensure_initialized(self):
+        """Ensure memory client is initialized before use."""
+        if not self._initialized:
+            logger.info("Lazy-loading memory service...")
+            self._initialize_memory()
+            self._initialized = True
 
     def search_combined_memory(self, user_id: str, query: str, limit: int = 5) -> dict:
         """
@@ -33,6 +40,7 @@ class MemoryService:
         Returns:
             dict: Combined results with keys 'qdrant' and 'mem0'
         """
+        self._ensure_initialized()
         combined_results = {"qdrant": [], "mem0": []}
 
         try:
@@ -73,10 +81,8 @@ class MemoryService:
 
             mem0_results = self._search_memories(user_id, query, limit=limit)
 
-            # Format mem0 results
             if mem0_results:
                 for memory in mem0_results:
-                    # Handle different mem0 response formats
                     if isinstance(memory, dict):
                         combined_results["mem0"].append(
                             {
@@ -106,7 +112,6 @@ class MemoryService:
         if not self._mem:
             return []
         try:
-            # Try different approaches to get all memories for the user
             if hasattr(self._mem, "get_all"):
                 # Try get_all method if available
                 return self._mem.get_all(user_id=user_id, limit=limit)
@@ -137,6 +142,7 @@ class MemoryService:
 
     def add_memory(self, msg: str, user_id: str, metadata: dict = None):
         """Add a new memory."""
+        self._ensure_initialized()
         if not self._mem:
             return
         try:
@@ -153,6 +159,7 @@ class MemoryService:
 
     def update_memory(self, memory_id: str, text: str):
         """Update an existing memory."""
+        self._ensure_initialized()
         if not self._mem:
             return
         try:
@@ -163,6 +170,7 @@ class MemoryService:
 
     def delete_memory(self, memory_id: str):
         """Delete a memory."""
+        self._ensure_initialized()
         if not self._mem:
             return
         try:
