@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     MEM_API_KEY: str | None = None
 
-    DEBUG: bool = True
+    DEBUG: bool = False
 
 
 settings = Settings()

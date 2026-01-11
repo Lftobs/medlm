@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 class StreamService:
     def __init__(self):
         self.redis = redis.from_url(settings.CELERY_BROKER_URL, decode_responses=True)
-        # Synchronous Redis client for use in Celery workers
         self.redis_sync = redis_sync.from_url(
             settings.CELERY_BROKER_URL, decode_responses=True
         )

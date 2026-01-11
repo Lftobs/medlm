@@ -30,7 +30,6 @@ class ScoredResult:
 
 class VectorService:
     def __init__(self, url: str = None):
-        # Don't connect on import - wait until first use (lazy loading)
         self.url = url if url is not None else settings.QDRANT_URL
         self.client = None
         self._initialized = False

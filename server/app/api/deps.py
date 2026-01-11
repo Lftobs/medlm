@@ -28,7 +28,6 @@ async def get_current_user(
     session_token = request.cookies.get("better-auth.session_token")
     if session_token:
         session_token = session_token.split(".")[0]
-        print(session_token.split(".")[0])
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 

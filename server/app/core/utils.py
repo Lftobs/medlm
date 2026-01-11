@@ -1,6 +1,5 @@
 import logging
 from app.core.config import settings
-from sentence_transformers import SentenceTransformer
 
 
 logger = logging.getLogger(__name__)
@@ -11,6 +10,8 @@ def get_embedding_model():
     """Lazy load the embedding model on first access."""
     global _embedding_model
     if _embedding_model is None:
+        from sentence_transformers import SentenceTransformer
+
         logger.info("Loading embedding model...")
         _embedding_model = SentenceTransformer(
             settings.EMBEDDING_MODEL,

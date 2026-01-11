@@ -1,14 +1,8 @@
-import dspy
 from app.core.config import settings
 from app.core.utils import get_embedding_model
-from .llm.signatures import (
-    TimelineAnalysisSignature,
-    TrendAnalysisSignature,
-    ChatMedLm,
-    TextSimplificationSignature,
-)
 from .llm.memory_service import memory_service
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -20,26 +14,46 @@ class LLMService:
     _embedding_model = None
     _chat_predictor = None
     _text_simplification_predictor = None
+    _init_lock = threading.Lock()
+    _dspy_configured = False
 
     @classmethod
     def _initialize_dspy(cls):
         """Initialize DSPy with OpenRouter configuration (lazy initialization)."""
-        if cls._lm is None:
-            cls._lm = dspy.LM(
-                model="gemini/gemini-2.5-flash",
-                api_key=settings.GEMINI_API_KEY,
-                temperature=0.3,
-                cache=True,
-            )
-            cls._timeline_predictor = dspy.Predict(TimelineAnalysisSignature)
-            cls._trend_predictor = dspy.Predict(TrendAnalysisSignature)
-            cls._chat_predictor = dspy.ChainOfThought(ChatMedLm)
-            cls._text_simplification_predictor = dspy.ChainOfThought(
-                TextSimplificationSignature
-            )
-        if cls._embedding_model is None:
-            cls._embedding_model = get_embedding_model()
-        dspy.configure(lm=cls._lm)
+        with cls._init_lock:
+            if cls._lm is None:
+                import dspy
+                from .llm.signatures import (
+                    TimelineAnalysisSignature,
+                    TrendAnalysisSignature,
+                    ChatMedLm,
+                    TextSimplificationSignature,
+                )
+
+                cls._lm = dspy.LM(
+                    model="gemini/gemini-2.5-flash",
+                    api_key=settings.GEMINI_API_KEY,
+                    temperature=0.3,
+                    cache=True,
+                )
+                cls._timeline_predictor = dspy.Predict(TimelineAnalysisSignature)
+                cls._trend_predictor = dspy.Predict(TrendAnalysisSignature)
+                cls._chat_predictor = dspy.ChainOfThought(ChatMedLm)
+                cls._text_simplification_predictor = dspy.ChainOfThought(
+                    TextSimplificationSignature
+                )
+            if cls._embedding_model is None:
+                cls._embedding_model = get_embedding_model()
+
+            if not cls._dspy_configured:
+                try:
+                    import dspy
+
+                    dspy.configure(lm=cls._lm)
+                    cls._dspy_configured = True
+                except RuntimeError:
+                    logger.debug("DSPy already configured by another thread")
+                    cls._dspy_configured = True
 
     def __init__(self):
         self.memory_service = memory_service
