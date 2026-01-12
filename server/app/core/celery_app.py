@@ -9,7 +9,7 @@ celery_app = Celery(
     "medlm_worker",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.worker"],  # Explicitly include worker module with tasks
+    include=["app.worker"],
 )
 
 # celery_app.conf.task_routes = {
@@ -33,7 +33,7 @@ def cleanup_on_worker_shutdown(sender=None, **kwargs):
     """Clean up resources when Celery worker shuts down."""
     logger.info("Celery worker shutting down, cleaning up resources...")
     try:
-        from app.main import cleanup_model
+        from app.core.utils import cleanup_model
 
         cleanup_model()
         logger.info("Successfully cleaned up model resources")
@@ -46,7 +46,7 @@ def cleanup_on_process_shutdown(sender=None, **kwargs):
     """Clean up resources when worker process shuts down."""
     logger.info("Celery worker process shutting down...")
     try:
-        from app.main import cleanup_model
+        from app.core.utils import cleanup_model
 
         cleanup_model()
         logger.info("Successfully cleaned up process resources")
