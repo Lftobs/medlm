@@ -17,6 +17,16 @@ export const auth = betterAuth({
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
         },
     },
+    advanced: {
+        cookies: {
+            state: {
+                attributes: {
+                    sameSite: "none",
+                    secure: true,
+                }
+            }
+        }
+    },
     trustedOrigins: [
         process.env.FE_URL || "http://localhost:3000",
         process.env.VITE_SERVER_URL || "http://localhost:8000",

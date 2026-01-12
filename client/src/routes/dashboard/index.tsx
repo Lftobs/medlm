@@ -16,7 +16,7 @@ import {
 import { User as UserIcon } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useEventStream } from "../../hooks/use-event-stream";
-import { AnalysisOverlay } from "../../components/AnalysisOverlay";
+import { StorytellingOverlay } from "../../components/StorytellingOverlay";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardOverview,
@@ -314,7 +314,7 @@ function DashboardOverview() {
       {/* Upload overlay */}
       <AnimatePresence>
         {status !== "IDLE" && (
-          <AnalysisOverlay
+          <StorytellingOverlay
             status={status}
             message={processingMessage}
             logs={logs}
