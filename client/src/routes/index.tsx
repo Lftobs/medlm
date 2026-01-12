@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
   Brain,
   FileText,
-  Zap,
   Lock,
   CheckCircle2,
 } from "lucide-react";
@@ -29,35 +28,7 @@ function LandingPage() {
   );
 }
 
-// --- ANIMATED NOISE COMPONENT ---
-function AnimatedNoise() {
-  const [seed, setSeed] = useState(0);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSeed((prev) => (prev + 1) % 10);
-    }, 100);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.015]">
-      <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <filter id={`noise-${seed}`}>
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency={0.7 + seed * 0.02}
-            numOctaves="4"
-            seed={seed * 17}
-            stitchTiles="stitch"
-          />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter={`url(#noise-${seed})`} />
-      </svg>
-    </div>
-  );
-}
 
 const accordionFeatures = [
   {
@@ -90,7 +61,7 @@ function HeroAccordionSection() {
   return (
     <section className="min-h-screen pt-32 pb-20 relative overflow-hidden">
       {/* Animated Noise Background */}
-      <AnimatedNoise />
+
 
       {/* Gradient Orbs */}
       <motion.div
@@ -226,13 +197,12 @@ function HeroAccordionSection() {
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    activeId === "dashboard"
-                      ? "bg-blue-500/20 text-blue-400"
-                      : activeId === "timeline"
-                        ? "bg-indigo-500/20 text-indigo-400"
-                        : "bg-violet-500/20 text-violet-400"
-                  }`}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeId === "dashboard"
+                    ? "bg-blue-500/20 text-blue-400"
+                    : activeId === "timeline"
+                      ? "bg-indigo-500/20 text-indigo-400"
+                      : "bg-violet-500/20 text-violet-400"
+                    }`}
                 >
                   <Sparkles size={18} />
                 </div>
@@ -263,11 +233,10 @@ function AccordionItem({
   return (
     <div
       onClick={onClick}
-      className={`border-l-2 pl-6 py-5 cursor-pointer transition-all duration-300 ${
-        isActive
-          ? "border-blue-500 bg-slate-800/40"
-          : "border-slate-700 hover:border-slate-500 hover:bg-slate-800/20"
-      }`}
+      className={`border-l-2 pl-6 py-5 cursor-pointer transition-all duration-300 ${isActive
+        ? "border-blue-500 bg-slate-800/40"
+        : "border-slate-700 hover:border-slate-500 hover:bg-slate-800/20"
+        }`}
     >
       <h3
         className={`font-bold text-lg transition-colors ${isActive ? "text-white" : "text-slate-400"}`}
