@@ -4,8 +4,9 @@ import signal
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.api.deps import get_current_user
 from app.models import User
 from app.core.config import settings
@@ -32,13 +33,39 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
+# Add CORS middleware with comprehensive configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=settings.BACKEND_CORS_ORIGINS
+    if isinstance(settings.BACKEND_CORS_ORIGINS, list)
+    else [settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
+
+
+@app.exception_handler(Exception)
+async def cors_exception_handler(request: Request, exc: Exception):
+    """Handle exceptions and ensure CORS headers are present."""
+    origin = request.headers.get("origin")
+
+    response = JSONResponse(
+        status_code=500, content={"detail": str(exc), "error": "Internal server error"}
+    )
+
+    if origin:
+        allowed_origins = (
+            settings.BACKEND_CORS_ORIGINS
+            if isinstance(settings.BACKEND_CORS_ORIGINS, list)
+            else [settings.BACKEND_CORS_ORIGINS]
+        )
+        if "*" in allowed_origins or origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
+
 
 app.include_router(upload.router)
 app.include_router(analysis.router)

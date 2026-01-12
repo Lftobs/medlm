@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from typing import Optional
+import os
 
 
 class Settings(BaseSettings):
@@ -11,7 +13,7 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "MedLM API"
 
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    BACKEND_CORS_ORIGINS: list[str] | str
 
     STORAGE_DIR: str = "./storage/uploads"
     EMBEDDING_MODEL: str = "Qwen/Qwen3-Embedding-0.6B"
@@ -25,6 +27,21 @@ class Settings(BaseSettings):
     MEM_API_KEY: str | None = None
 
     DEBUG: bool = False
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from string to list."""
+        if isinstance(v, str):
+            origins = [
+                origin.strip()
+                for origin in v.replace(" ", ",").split(",")
+                if origin.strip()
+            ]
+            if "*" in origins or "http://*" in origins or "https://*" in origins:
+                return ["*"]
+            return origins
+        return v
 
 
 settings = Settings()
