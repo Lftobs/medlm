@@ -29,10 +29,11 @@ function TrendsPage() {
   const [trendData, setTrendData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisMessage, setAnalysisMessage] = useState("Initializing analysis...");
+  const [analysisMessage, setAnalysisMessage] = useState(
+    "Initializing analysis...",
+  );
   const [selectedTrend, setSelectedTrend] = useState<any>(null);
   const [isSimplifyingSummary, setIsSimplifyingSummary] = useState(false);
-
 
   const fetchTrends = async () => {
     try {
@@ -81,8 +82,6 @@ function TrendsPage() {
     }
   });
 
-
-
   const handleStartAnalysis = async () => {
     setIsAnalyzing(true);
     setAnalysisMessage("Starting trend analysis...");
@@ -103,10 +102,10 @@ function TrendsPage() {
     setIsSimplifyingSummary(true);
     try {
       const result = await simplifyText(trendData.trend_summary);
-      if (result.simplified_text) {
+      if (result.simplified) {
         setTrendData((prev: any) => ({
           ...prev,
-          trend_summary: result.simplified_text,
+          trend_summary: result.simplified,
         }));
         toast.success("Summary simplified!");
       }
@@ -126,7 +125,6 @@ function TrendsPage() {
     );
   }
 
-  // --- ANALYSIS IN PROGRESS OVERLAY ---
   const AnalysisOverlay = () => (
     <AnimatePresence>
       {isAnalyzing && (
@@ -236,8 +234,9 @@ function TrendsPage() {
             No Health Trends Analyzed
           </h1>
           <p className="text-slate-500 mb-8 leading-relaxed">
-            Your clinical records are uploaded, but we haven't analyzed them for trends yet.
-            Start the analysis to uncover patterns in your health history.
+            Your clinical records are uploaded, but we haven't analyzed them for
+            trends yet. Start the analysis to uncover patterns in your health
+            history.
           </p>
 
           <button
@@ -386,10 +385,15 @@ interface TrendCardProps {
   onSimplified?: (simplifiedText: string) => void;
 }
 
-function TrendCard({ trend, index, onViewDetails, onSimplified }: TrendCardProps) {
+function TrendCard({
+  trend,
+  index,
+  onViewDetails,
+  onSimplified,
+}: TrendCardProps) {
   const [isSimplifying, setIsSimplifying] = useState(false);
   const [displayText, setDisplayText] = useState(
-    trend.trend || trend.description || trend.title || "Health trend"
+    trend.trend || trend.description || trend.title || "Health trend",
   );
   const isMajor = trend.is_major || trend.isMajor || false;
 
@@ -402,9 +406,9 @@ function TrendCard({ trend, index, onViewDetails, onSimplified }: TrendCardProps
     setIsSimplifying(true);
     try {
       const result = await simplifyText(displayText);
-      if (result.simplified_text) {
-        setDisplayText(result.simplified_text);
-        onSimplified?.(result.simplified_text);
+      if (result.simplified) {
+        setDisplayText(result.simplified);
+        onSimplified?.(result.simplified);
         toast.success("Trend simplified!");
       }
     } catch (err) {
@@ -491,7 +495,7 @@ function TrendDetailModal({ trend, onClose }: TrendDetailModalProps) {
   const [isSimplifying, setIsSimplifying] = useState(false);
   const [displayTrendText, setDisplayTrendText] = useState(trend?.trend || "");
 
-  // Update displayTrendText when trend changes
+
   useEffect(() => {
     if (trend?.trend) {
       setDisplayTrendText(trend.trend);
@@ -503,8 +507,8 @@ function TrendDetailModal({ trend, onClose }: TrendDetailModalProps) {
     setIsSimplifying(true);
     try {
       const result = await simplifyText(displayTrendText);
-      if (result.simplified_text) {
-        setDisplayTrendText(result.simplified_text);
+      if (result.simplified) {
+        setDisplayTrendText(result.simplified);
         toast.success("Trend simplified!");
       }
     } catch (e) {

@@ -23,8 +23,8 @@ ALLOWED_EXTENSIONS = {
     "image/jpeg",
     "image/png",
     "image/jpg",
-    "application/dicom",  # DICOM files
-    "application/octet-stream",  # For .dcm files without proper MIME
+    "application/dicom",
+    "application/octet-stream",
 }
 
 
@@ -52,14 +52,15 @@ async def upload_files(
     Upload one or more medical files (PDF, images, DICOM).
     Returns a list of created MedicalRecord IDs.
     """
- 
 
     uploaded_records = []
     skipped_files = []
     existing_count = db.exec(
-        select(func.count(MedicalRecord.id)).where(MedicalRecord.user_id == current_user.id)
+        select(func.count(MedicalRecord.id)).where(
+            MedicalRecord.user_id == current_user.id
+        )
     ).one()
-    is_initial_upload = (existing_count == 0)
+    is_initial_upload = existing_count == 0
 
     for file in files:
         existing_record = db.exec(
@@ -119,13 +120,15 @@ async def upload_files(
                 "created_at": record.created_at.isoformat(),
             }
         )
-    
+
     if is_initial_upload and uploaded_records:
-        logger.info(f"Initial upload detected for user {current_user.id}. Triggering auto-analysis.")
+        logger.info(
+            f"Initial upload detected for user {current_user.id}. Triggering auto-analysis."
+        )
         try:
-            run_analysis_job.delay(str(current_user.id), None) # None = both trends and timeline
+            run_analysis_job.delay(str(current_user.id), None)
         except Exception as e:
-             logger.error(f"Failed to trigger auto-analysis: {e}")
+            logger.error(f"Failed to trigger auto-analysis: {e}")
 
     msg = f"Successfully uploaded {len(uploaded_records)} file(s)"
     if skipped_files:

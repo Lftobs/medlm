@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { uploadFiles, getTimeline } from "../../lib/api";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,7 +16,7 @@ import {
 import { User as UserIcon } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useEventStream } from "../../hooks/use-event-stream";
-import { StorytellingOverlay } from "../../components/StorytellingOverlay";
+import { AnalysisOverlay } from "../../components/AnalysisOverlay";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardOverview,
@@ -24,12 +24,13 @@ export const Route = createFileRoute("/dashboard/")({
 
 function DashboardOverview() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<"IDLE" | "UPLOADING" | "PROCESSING_RECORDS" | "ANALYZING_TIMELINE">("IDLE");
+  const [status, setStatus] = useState<
+    "IDLE" | "UPLOADING" | "PROCESSING_RECORDS" | "ANALYZING_TIMELINE"
+  >("IDLE");
   const [processingMessage, setProcessingMessage] = useState("Initializing...");
   const [logs, setLogs] = useState<string[]>([]);
   const [timelineData, setTimelineData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   const fetchTimeline = () => {
     setLoading(true);
@@ -105,7 +106,11 @@ function DashboardOverview() {
         await uploadFiles(files);
 
         toast.success("Upload complete. Starting analysis...");
-        setLogs((prev) => [...prev, "✅ Upload complete", "🔄 Initializing analysis queue..."]);
+        setLogs((prev) => [
+          ...prev,
+          "✅ Upload complete",
+          "🔄 Initializing analysis queue...",
+        ]);
         // Transition to processing state immediately after upload success
         // The SSE events will refine this state shortly
         setStatus("PROCESSING_RECORDS");
@@ -151,7 +156,6 @@ function DashboardOverview() {
     );
   }
 
-
   // --- EMPTY STATE (New User) ---
   if (!timelineData) {
     return (
@@ -166,85 +170,11 @@ function DashboardOverview() {
         />
         <AnimatePresence>
           {status !== "IDLE" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-white/95 backdrop-blur-md z-50 flex items-center justify-center flex-col gap-8"
-            >
-              {/* Animated Icon Container */}
-              <div className="relative">
-                <motion.div
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.5, 0.8, 0.5],
-                    rotate: 360,
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Number.POSITIVE_INFINITY,
-                    ease: "linear",
-                  }}
-                  className="absolute inset-0 bg-gradient-to-r from-blue-300 to-indigo-300 rounded-full blur-2xl opacity-50"
-                />
-                <div className="bg-white p-6 rounded-2xl shadow-xl relative z-10 border border-blue-100">
-                  {status === "UPLOADING" ? (
-                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-                  ) : status === "PROCESSING_RECORDS" ? (
-                    <FileText className="w-12 h-12 text-indigo-600 animate-pulse" />
-                  ) : (
-                    <Sparkles className="w-12 h-12 text-purple-600 animate-pulse" />
-                  )}
-                </div>
-              </div>
-
-              <div className="text-center space-y-3 max-w-md px-6">
-                <motion.h3
-                  key={status}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600"
-                >
-                  {status === "UPLOADING" && "Securing Records..."}
-                  {status === "PROCESSING_RECORDS" && "Reading Documents..."}
-                  {status === "ANALYZING_TIMELINE" && "Connecting the Dots..."}
-                </motion.h3>
-
-                <motion.p
-                  key={processingMessage}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-slate-500 text-lg leading-relaxed"
-                >
-                  {status === "UPLOADING"
-                    ? "Encrypting your data and sending it to our secure vault."
-                    : processingMessage
-                  }
-                </motion.p>
-              </div>
-
-              {/* Progress Indicators */}
-              <div className="w-full max-w-xs space-y-3">
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
-                    initial={{ width: "0%" }}
-                    animate={{
-                      width: status === "UPLOADING" ? "30%" : status === "PROCESSING_RECORDS" ? "60%" : "90%",
-                      transition: {
-                        duration: 1,
-                        ease: "easeInOut"
-                      }
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-slate-400 font-medium uppercase tracking-wider">
-                  <span className={status === "UPLOADING" ? "text-blue-600 font-bold" : ""}>Upload</span>
-                  <span className={status === "PROCESSING_RECORDS" ? "text-indigo-600 font-bold" : ""}>Process</span>
-                  <span className={status === "ANALYZING_TIMELINE" ? "text-purple-600 font-bold" : ""}>Analyze</span>
-                </div>
-              </div>
-            </motion.div>
+            <AnalysisOverlay
+              status={status}
+              message={processingMessage}
+              logs={logs}
+            />
           )}
         </AnimatePresence>
 
@@ -259,7 +189,6 @@ function DashboardOverview() {
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
           <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
 
-
           <motion.div
             whileHover={{ scale: 1.05, rotate: 5 }}
             className="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-8 text-blue-600 shadow-lg shadow-blue-100"
@@ -271,7 +200,8 @@ function DashboardOverview() {
             Welcome to MedLM
           </h1>
           <p className="text-slate-600 mb-10 leading-relaxed text-lg">
-            Let's build your health timeline. Upload your clinical records (PDFs, Images, DICOM) to get started.
+            Let's build your health timeline. Upload your clinical records
+            (PDFs, Images, DICOM) to get started.
           </p>
 
           <motion.button
@@ -291,7 +221,10 @@ function DashboardOverview() {
             className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-400 bg-slate-50 py-3 px-4 rounded-full inline-flex border border-slate-100"
           >
             <Sparkles size={14} className="text-amber-400" />
-            <span><span className="font-semibold text-slate-500">Pro Tip:</span> Analysis takes ~5 minutes.</span>
+            <span>
+              <span className="font-semibold text-slate-500">Pro Tip:</span>{" "}
+              Analysis takes ~5 minutes.
+            </span>
           </motion.div>
         </motion.div>
       </div>
@@ -314,7 +247,7 @@ function DashboardOverview() {
       {/* Upload overlay */}
       <AnimatePresence>
         {status !== "IDLE" && (
-          <StorytellingOverlay
+          <AnalysisOverlay
             status={status}
             message={processingMessage}
             logs={logs}
@@ -388,6 +321,7 @@ function DashboardOverview() {
               </h3>
               <Link
                 to="/dashboard/timeline"
+                search={{ eventTitle: undefined }}
                 className="text-sm text-blue-600 font-medium hover:underline"
               >
                 View all
@@ -398,8 +332,8 @@ function DashboardOverview() {
               {events.length > 0 ? (
                 events.map((event: any, index: number) => (
                   <Link
-                    to="/dashboard/records/$recordId"
-                    params={{ recordId: "1" }} // Fallback if no specific record link
+                    to="/dashboard/timeline"
+                    search={{ eventTitle: event.title }}
                     key={index}
                     className="block"
                   >
@@ -499,14 +433,7 @@ function DashboardOverview() {
   );
 }
 
-function StatItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50 -mx-2 px-2 rounded-md transition-colors cursor-default">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-sm font-semibold text-slate-900">{value}</span>
-    </div>
-  );
-}
+
 
 function getIconForType(type: string) {
   switch (type) {

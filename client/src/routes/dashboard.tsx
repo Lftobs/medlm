@@ -35,10 +35,9 @@ function DashboardLayout() {
 
   // Auth redirect commented out for dev as requested
   if (!session) {
-    window.location.href = '/login'
-    return null
+    window.location.href = "/login";
+    return null;
   }
-
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
@@ -59,11 +58,6 @@ function DashboardLayout() {
           <NavItem to="/dashboard" icon={Layout} label="Overview" exact />
           <NavItem to="/dashboard/records" icon={FileText} label="Records" />
           <NavItem to="/dashboard/chat" icon={Activity} label="Chat medlm" />
-          <NavItem
-            to="/dashboard/simplify"
-            icon={FileText}
-            label="Simplify Text"
-          />
           <div className="pt-4 pb-2">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">
               Workspace

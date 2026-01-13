@@ -112,30 +112,8 @@ class MemoryService:
         if not self._mem:
             return []
         try:
-            if hasattr(self._mem, "get_all"):
-                # Try get_all method if available
-                return self._mem.get_all(user_id=user_id, limit=limit)
-            elif hasattr(self._mem, "list"):
-                # Try list method if available
-                return self._mem.list(user_id=user_id, limit=limit)
-            else:
-                # Try search with different filter formats
-                try:
-                    # Try with user_id in filters
-                    return self._mem.search(
-                        "", filters={"user_id": user_id}, limit=limit
-                    )
-                except Exception:
-                    try:
-                        # Try with different filter format
-                        return self._mem.search("", user_id=user_id, limit=limit)
-                    except Exception:
-                        try:
-                            # Try without filters but with user_id parameter
-                            return self._mem.search("", user_id=user_id, limit=limit)
-                        except Exception:
-                            # Last resort: try empty search without filters
-                            return self._mem.search("", limit=limit)
+            # mem0 requires filters dictionary for get_all
+            return self._mem.get_all(filters={"user_id": user_id}, limit=limit)
         except Exception as e:
             logger.error(f"Memory search failed: {e}")
             return []

@@ -1,8 +1,9 @@
+from this import d
 from pydantic.main import BaseModel
 import dspy
 
 
-class TimelineOutput(BaseModel):
+class TimelineOutput(dspy.Signature):
     event_date: str = dspy.OutputField(
         desc="Date of the event in the format YYYY-MM-DD."
     )
@@ -15,7 +16,7 @@ class TimelineOutput(BaseModel):
     )
 
 
-class TrendOutput(BaseModel):
+class TrendOutput(dspy.Signature):
     patient_tip: str = dspy.OutputField(
         desc="""Tip or suggestion to mitigate/manage unhealthy trend patterns
         ...this should be actionable and easy to understand tips for the patients eg drinking atleast 5 liters of water daily,
@@ -121,4 +122,40 @@ class TextSimplificationSignature(dspy.Signature):
     input_text: str = dspy.InputField(desc="The complex medical text to simplify")
     simplified: str = dspy.OutputField(
         desc="Simplified version of the text so a layman can understand"
+    )
+
+
+class record(dspy.Signature):
+    date: str = dspy.OutputField(
+        desc="Date of the the record value was taken in yyyy-mm-dd. it should be gotten from the patient's medical record."
+    )
+    value: float = dspy.OutputField(desc="Value of the record in 2 decimal places")
+
+
+class VitalSignsAnalysis(dspy.Signature):
+    """
+    You are MedLM, an expert medical AI assistant. Your task is to analyze vital signs data.
+    """
+
+    test_name: str = dspy.OutputField(
+        desc="Name of the test analyzed eg PCV, Blood pressure, Cholesterol levels etc"
+    )
+    data: list[dict] = dspy.OutputField(
+        desc="a list of dict of date and the value from labs/notes"
+    )
+
+
+class VitalSignsAnalysisSignature(dspy.Signature):
+    """
+    You are MedLM, an expert medical AI assistant. Your task is to analyze vital signs data.
+    """
+
+    input_data: dict = dspy.InputField(
+        desc="Vital signs data from patient clinical notes and lab reports"
+    )
+    date: str = dspy.OutputField(
+        desc="Date the analysis was done in yyyy-mm-dd ie the day you analyze this data"
+    )
+    analysis: list[VitalSignsAnalysis] = dspy.OutputField(
+        desc="Analysis of the vital signs data"
     )
