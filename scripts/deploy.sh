@@ -11,11 +11,16 @@ cd $TARGET_DIR
 
 git pull origin main
 
-cd client
-bun install
+if ! git diff --quiet ORIG_HEAD HEAD -- client/package.json client/bun.lockb; then
+    echo "Detected changes in client dependencies. Running bun install..."
+    (cd client && bun install)
+fi
 
-cd server 
-uv sync
+
+if ! git diff --quiet ORIG_HEAD HEAD -- server/pyproject.toml server/uv.lock; then
+    echo "Detected changes in server dependencies. Running uv sync..."
+    cd server && uv sync
+fi
 
 echo "Running database migrations..."
 uv run alembic upgrade head
