@@ -1,9 +1,18 @@
-from app.core.config import settings
-from app.core.utils import get_embedding_model
-from .llm.memory_service import memory_service
+import asyncio
 import logging
 import threading
-import asyncio
+from typing import Optional
+
+from sqlmodel import Session, select
+
+import dspy
+from app.core.config import settings
+from app.core.db import engine
+from app.core.utils import get_embedding_model
+from app.models import MedicalRecord
+from app.services.extraction_service import TextExtractionService
+from app.services.storage import storage_service
+from .llm.memory_service import memory_service
 
 logger = logging.getLogger(__name__)
 
@@ -86,48 +95,23 @@ class LLMService:
 
             logger.info("LLM service resources cleaned up")
 
-    async def chat_medlm_async(
-        self, user_id: str, message: str, user_context: dict = None
-    ):
-        """Async wrapper for chat_medlm that yields chunks as an async generator."""
-        loop = asyncio.get_event_loop()
-        queue = asyncio.Queue()
 
-        def producer():
-            try:
-                # Iterate over the sync generator
-                for chunk in self.chat_medlm(user_id, message, user_context):
-                    loop.call_soon_threadsafe(queue.put_nowait, chunk)
-                # Signal completion
-                loop.call_soon_threadsafe(queue.put_nowait, None)
-            except Exception as e:
-                logger.error(f"Error in chat_medlm producer: {e}", exc_info=True)
-                loop.call_soon_threadsafe(queue.put_nowait, e)
-
-        # Run producer in a separate thread
-        threading.Thread(target=producer, daemon=True).start()
-
-        while True:
-            # Wait for next chunk
-            chunk = await queue.get()
-
-            if chunk is None:
-                # Completion sentinel
-                break
-
-            if isinstance(chunk, Exception):
-                # Re-raise or yield error message
-                yield f"I apologize, but I encountered an error: {str(chunk)}"
-                break
-
-            yield chunk
-
-    def chat_medlm(self, user_id: str, message: str, user_context: dict = None):
+    async def chat_medlm_async(self, user_id: str, message: str, user_context: dict = None):
+        """
+        Async generator for chat responses.
+        """
         self._ensure_initialized()
         response_text = ""
+        
+        # We run the blocking DSPy code in a thread to avoid blocking the async event loop
+        # But for simplicity in this MVP/Agent step, we can run it directly or wrap it.
+        # Since dspy is sync, we'll run the heavy lifting here. 
+        # Ideally: await asyncio.to_thread(self._run_audit_agent, ...)
+        
         try:
-            memory_results = self.memory_service.search_combined_memory(
-                user_id, message
+            # 1. Retrieve relevant memories/context
+            memory_results = await asyncio.to_thread(
+                self.memory_service.search_combined_memory, user_id, message
             )
 
             context = {
@@ -141,54 +125,61 @@ class LLMService:
 
             logger.info(
                 f"Chat context prepared with {len(memory_results.get('document_summaries', []))} summaries, "
-                f"{len(memory_results.get('qdrant', []))} Qdrant results and "
-                f"{len(memory_results.get('mem0', []))} mem0 results"
+                f"{len(memory_results.get('qdrant', []))} Qdrant results"
             )
 
+            # 2. Instantiate Tool and Agent
+            # Import here to avoid circulars if any, though top-level is fine usually
+            from .llm.tool_read_record import ReadMedicalRecord
+            from .llm.signatures import ChatMedLm
             import dspy
 
-            with dspy.context(lm=self._lm):
-                try:
-                    prediction = self._chat_predictor(
-                        context=formatted_context, user_input=message
+            read_tool = ReadMedicalRecord(user_id=user_id)
+            
+            # ReAct agent
+            react_agent = dspy.ReAct(ChatMedLm, tools=[read_tool])
+
+            def run_agent():
+                with dspy.context(lm=self._lm):
+                    return react_agent(
+                        context=formatted_context, 
+                        user_input=message
                     )
-                    response_text = prediction.response
-                    conversation = [
+
+            try:
+                # Run sync agent in thread
+                prediction = await asyncio.to_thread(run_agent)
+                response_text = prediction.response
+            except Exception as e:
+                logger.error(f"Chat ReAct agent failed: {e}", exc_info=True)
+                response_text = f"I apologize, but I encountered an error: {str(e)}"
+
+            # 3. Save memory
+            logger.info("Chat completed. Attempting to save chat memory...")
+            try:
+                await asyncio.to_thread(
+                    self.memory_service.add_memory,
+                    msg=[
                         {"role": "user", "content": message},
                         {"role": "assistant", "content": response_text},
-                    ]
-                    
-                    logger.info("Chat completed. Attempting to save chat memory...")
+                    ],
+                    user_id=user_id,
+                    metadata={
+                        "source": "chat_medlm",
+                        "has_qdrant_context": len(memory_results.get("qdrant", [])) > 0,
+                        "used_tools": True
+                    }
+                )
+                logger.info("Chat memory saved successfully")
+            except Exception as e:
+                logger.error(f"Failed to save chat memory: {e}", exc_info=True)
 
-                    self.memory_service.add_memory(
-                        msg=[
-                            {"role": "user", "content": message},
-                            {"role": "assistant", "content": response_text},
-                        ],
-                        user_id=user_id,
-                        metadata={
-                            "source": "chat_medlm",
-                            "has_qdrant_context": len(memory_results.get("qdrant", [])) > 0,
-                            "has_mem0_context": len(memory_results.get("mem0", [])) > 0,
-                        },
-                    )
-                    
-                    logger.info("Chat memory saved successfully")
-
-                    chunk_size = 20
-                    for i in range(0, len(response_text), chunk_size):
-                        chunk = response_text[i : i + chunk_size]
-                        yield chunk
-
-                except Exception as e:
-                    logger.error(f"Chat predictor failed: {e}", exc_info=True)
-                    yield f"I apologize, but I encountered an error: {str(e)}"
-                    return
-
-            
+            # 4. Stream response (as a single chunk for now, or simulated chunks)
+            # ReAct doesn't stream token-by-token easily.
+            yield response_text
 
         except Exception as e:
-            logger.error(f"Error in chat_medlm: {e}", exc_info=True)
+            logger.error(f"Error in chat_medlm_async: {e}", exc_info=True)
             yield f"I apologize, but I encountered an error: {str(e)}"
 
     def _format_context_for_chat(self, context: dict) -> dict:
