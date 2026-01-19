@@ -17,6 +17,7 @@ class User(SQLModel, table=True):
     records: List["MedicalRecord"] = Relationship(back_populates="user")
     timeline_events: List["TimelineEvent"] = Relationship(back_populates="user")
     health_trends: List["HealthTrend"] = Relationship(back_populates="user")
+    health_vitals: List["HealthVital"] = Relationship(back_populates="user")
 
 
 class Session(SQLModel, table=True):
@@ -67,6 +68,8 @@ class MedicalRecord(SQLModel, table=True):
     mime_type: str
     processed_at: Optional[datetime] = None
     extracted_images: List[str] = Field(default=[], sa_column=Column(JSON))
+    summary: Optional[str] = None
+    category: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     user: User = Relationship(back_populates="records")
@@ -96,3 +99,15 @@ class HealthTrend(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     user: User = Relationship(back_populates="health_trends")
+
+
+class HealthVital(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: str = Field(foreign_key="user.id")
+    analysis_data: List[dict] = Field(default=[], sa_column=Column(JSON))
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    user: User = Relationship(back_populates="health_vitals")
+

@@ -11,9 +11,9 @@ import {
   Clock,
   File,
   LogOut,
-  Sparkles,
   Loader2,
   TrendingUp,
+  BarChart,
 } from "lucide-react";
 import { useSession, authClient } from "../lib/auth-client";
 import { DashboardHeader } from "../components/DashboardHeader";
@@ -44,10 +44,8 @@ function DashboardLayout() {
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200 z-10 hidden md:flex flex-col">
         <div className="p-6 border-b border-slate-100">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 text-white">
-              <Sparkles size={16} fill="currentColor" />
-            </div>
+          <Link to="/" className="flex items-center gap-3">
+            <img src="/medlm-icon.svg" className="w-9 h-9 shadow-sm hover:scale-105 transition-transform" alt="MedLM" />
             <span className="text-xl font-semibold tracking-tight text-slate-900">
               MedLM
             </span>
@@ -64,6 +62,7 @@ function DashboardLayout() {
             </div>
             <NavItem to="/dashboard/timeline" icon={Clock} label="Timeline" />
             <NavItem to="/dashboard/trends" icon={TrendingUp} label="Trends" />
+            <NavItem to="/dashboard/charts" icon={BarChart} label="Charts" />
             <NavItem to="/dashboard/shared" icon={File} label="Shared Docs" />
           </div>
         </nav>

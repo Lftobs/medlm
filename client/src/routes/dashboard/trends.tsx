@@ -295,6 +295,18 @@ function TrendsPage() {
                 })}
               </span>
             )}
+            {/* Rescan Button (Only if > 30 days) */}
+            {trendData.created_at && (new Date().getTime() - new Date(trendData.created_at).getTime() > 30 * 24 * 60 * 60 * 1000) && (
+              <button
+                onClick={handleStartAnalysis}
+                disabled={isAnalyzing}
+                className="ml-2 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg transition-all"
+                title="Data is older than 30 days. Click to rescan."
+              >
+                {isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                Rescan
+              </button>
+            )}
           </div>
           <p className="text-slate-500">
             Patterns and insights from your medical history.

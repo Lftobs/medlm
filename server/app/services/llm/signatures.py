@@ -1,161 +1,201 @@
-from this import d
 from pydantic.main import BaseModel
 import dspy
 
 
 class TimelineOutput(dspy.Signature):
     event_date: str = dspy.OutputField(
-        desc="Date of the event in the format YYYY-MM-DD."
+        desc="Date of the event in YYYY-MM-DD format. If exact date is unknown, use YYYY-MM or YYYY."
     )
     event: str = dspy.OutputField(
-        desc="Description of the event eg major hip surgery in 2023"
+        desc="Concise description of the significant health event (e.g., 'Major hip replacement surgery', 'Diagnosed with Type 2 Diabetes')."
     )
-    is_major: bool = dspy.OutputField(desc="Whether the event is major")
+    is_major: bool = dspy.OutputField(
+        desc="True if the event had a significant, lasting impact on the patient's health or treatment plan."
+    )
     citation: str | None = dspy.OutputField(
-        desc="Citation or reference to backup the event"
+        desc="Direct quote or reference from the source document that validates this event."
     )
 
 
 class TrendOutput(dspy.Signature):
     patient_tip: str = dspy.OutputField(
-        desc="""Tip or suggestion to mitigate/manage unhealthy trend patterns
-        ...this should be actionable and easy to understand tips for the patients eg drinking atleast 5 liters of water daily,
-        regular follow up with medication and checkup, reduce salt intake, exercise regularly etc
-        """,
+        desc="""Actionable, easy-to-understand advice for the patient to manage the observed trend.
+        Use simple language. Example: 'Try to drink at least 2 liters of water daily to help with hydration levels.'""",
         max_length=500,
     )
     medical_team_tip: str = dspy.OutputField(
-        desc="""Tip or suggestion to mitigate/manage unhealthy trend patterns
-        ...this should be actionable tips for the medical team
-        """,
+        desc="""Clinical suggestion for the healthcare provider regarding the observed trend.
+        Example: 'Monitor renal function more closely due to slight but consistent creatinine increase.'""",
         max_length=500,
     )
     vital_signs_trends: list[str] = dspy.OutputField(
-        desc="List of vital signs and lab tests/reports trends observed. eg stable pvc of 20%, bpm dropped by 2%"
+        desc="List of specific trends observed in vital signs or lab results. Example: ['Stable PCV at 20%', 'Resting heart rate decreased by 5 bpm over 6 months']."
     )
     vital_signs_trends_overview: str = dspy.OutputField(
-        desc="Overview of vital signs and lab tests/results trends observed (less than 100 characters)",
+        desc="A brief, high-level summary of the vital signs and lab trends (under 200 characters).",
         max_length=200,
     )
     event_dates: list[str] = dspy.OutputField(
-        desc="List of dates of days the trend were observed in the format YYYY-MM-DD"
+        desc="List of dates (YYYY-MM-DD) corresponding to the data points where this trend was observed."
     )
     trend: str = dspy.OutputField(
-        desc="Description of the trend eg increase in blood pressure by 10% over 3 months"
+        desc="Description of the overall trend pattern. Example: 'Gradual increase in systolic blood pressure by 10% over the last 3 months.'"
     )
-    is_major: bool = dspy.OutputField(desc="Whether the event is major")
+    is_major: bool = dspy.OutputField(
+        desc="True if this trend indicates a significant health risk or improvement."
+    )
     citation: str | None = dspy.OutputField(
-        desc="Citation or reference to backup the event"
+        desc="Direct quote or reference from the source document that validates this trend."
     )
 
 
 class TimelineAnalysisSignature(dspy.Signature):
     """
-    You are MedLM, an expert medical AI assistant. Analyze the provided medical history with precision.
-    Always cite specific documents when possible.
-    Your goal is to find invisible trends and construct a chronological/major health timeline.
-    (e.g. Major hip replacement surgery in 2020, New diagnosis of diabetes in 2022)
+    You are MedLM, an expert medical AI assistant.
+    Your task is to analyze the user's clinical records to construct a precise, chronological timeline of their health history.
+    Focus on identifying major medical events, surgeries, diagnoses, and significant changes in treatment.
+    Always prioritize accuracy and cite the specific documents where information is found.
     """
 
-    record_input: str = dspy.InputField(desc="User's clinical records")
+    record_input: str = dspy.InputField(
+        desc="The raw text content of the user's clinical records (notes, reports, etc.)."
+    )
     overall_summary: str = dspy.OutputField(
-        desc="Summary of the overall clinical record"
+        desc="A comprehensive narrative summary of the patient's overall clinical history based on the records."
     )
     result: list[TimelineOutput] = dspy.OutputField(
-        desc="List of events and their dates"
+        desc="A structured list of chronological health events."
     )
     timeline_summary: str = dspy.OutputField(
-        desc="Summary of the timeline ie  the result", max_length=500
+        desc="A concise summary of the timeline findings, highlighting the most critical events.",
+        max_length=500,
     )
 
 
 class TrendAnalysisSignature(dspy.Signature):
     """
-    You are MedLM, an expert medical AI assistant. Analyze the provided medical history with precision.
-    Always cite specific documents when possible.
-    Your goal is to find invisible trends with precision within the clinical records.
-    (e.g., "Your iron levels have been dropping by 2% every year for 5 years,
-    which your previous doctors missed because each individual test was within the 'normal' range.")
+    You are MedLM, an expert medical AI assistant.
+    Your task is to analyze the user's clinical records to detect subtle, invisible trends over time.
+    Look for patterns that might be missed in individual visits, such as gradual declines in iron levels or slow increases in blood pressure.
+    Provide actionable insights for both the patient and the medical team.
     """
 
-    record_input: str = dspy.InputField(desc="User's clinical records")
-    result: list[TrendOutput] = dspy.OutputField(desc="List of events and their dates")
+    record_input: str = dspy.InputField(
+        desc="The raw text content of the user's clinical records."
+    )
+    result: list[TrendOutput] = dspy.OutputField(
+        desc="A list of identified trends with detailed analysis."
+    )
     trend_summary: str = dspy.OutputField(
-        desc="Summary of observations from the trend (ie the result)"
+        desc="A summary of the most significant trends observed across the records."
     )
 
 
 class MemoryQA(dspy.Signature):
     """
-    You are MedLM, an expert medical AI assistant. Analyze the provided medical history with precision.
-    Your role.
-    Your goal is to find invisible trends with precision within the clinical records.
+    You are MedLM, an expert medical AI assistant.
+    Your task is to answer questions based strictly on the provided memory/history context.
+    Maintain a professional yet empathetic tone.
     """
 
-    user_input: str = dspy.InputField()
-    response: str = dspy.OutputField()
+    user_input: str = dspy.InputField(desc="The question or query from the user.")
+    response: str = dspy.OutputField(
+        desc="A direct and accurate answer based on the context."
+    )
 
 
 class ChatMedLm(dspy.Signature):
     """
-    You are MedLM, an expert medical AI assistant. Analyze the provided medical history with precision.
-    Your role.
-    Your goal is to find invisible trends with precision within the clinical records.
+    You are MedLM, an expert medical AI assistant.
+    Your task is to engage in a helpful conversation with the user about their health.
+    Use the provided context (clinical records, past conversation) to answer questions accurately.
+    Do not make up medical facts. If the information is not in the context, state that clearly.
+    Keep responses personalized, clear, and free of markdown formatting unless necessary for lists.
     """
 
     context: dict = dspy.InputField(
-        desc="Necessary information needed to answer the question"
+        desc="Structured context containing relevant clinical records and conversation history."
     )
-    user_input: str = dspy.InputField()
+    user_input: str = dspy.InputField(desc="The user's current message or question.")
     response: str = dspy.OutputField(
-        desc="Clean personalized response with no markdown content."
+        desc="A personalized, medically accurate response to the user."
     )
 
 
 class TextSimplificationSignature(dspy.Signature):
     """
-    You are MedLM, an expert medical AI assistant. Your task is to simplify complex medical text
-    so that it can be easily understood by laypeople (non-medical professionals).
-    Use simple language, avoid medical jargon, explain terms when necessary, and maintain accuracy.
+    You are MedLM, an expert medical AI assistant.
+    Your task is to rewrite complex medical text into simple, plain English that a non-medical person can easily understand.
+    Retain the core meaning and accuracy, but remove jargon and explain difficult concepts.
     """
 
-    input_text: str = dspy.InputField(desc="The complex medical text to simplify")
+    input_text: str = dspy.InputField(desc="The complex medical text to be simplified.")
     simplified: str = dspy.OutputField(
-        desc="Simplified version of the text so a layman can understand"
+        desc="The simplified version of the text, suitable for a layperson."
     )
 
 
-class record(dspy.Signature):
-    date: str = dspy.OutputField(
-        desc="Date of the the record value was taken in yyyy-mm-dd. it should be gotten from the patient's medical record."
+class VitalSignValue(dspy.Signature):
+    date: str = dspy.OutputField(desc="Date the value was recorded (YYYY-MM-DD).")
+    value: float = dspy.OutputField(
+        desc="The numeric value of the vital sign or test result (up to 2 decimal places)."
     )
-    value: float = dspy.OutputField(desc="Value of the record in 2 decimal places")
 
 
 class VitalSignsAnalysis(dspy.Signature):
     """
-    You are MedLM, an expert medical AI assistant. Your task is to analyze vital signs data.
+    Structure for a single type of vital sign or lab test analysis.
     """
 
     test_name: str = dspy.OutputField(
-        desc="Name of the test analyzed eg PCV, Blood pressure, Cholesterol levels etc"
+        desc="Standardized name of the test or vital sign (e.g., 'Hemoglobin', 'Blood Pressure (Systolic)')."
     )
     data: list[dict] = dspy.OutputField(
-        desc="a list of dict of date and the value from labs/notes"
+        desc="A list of dictionaries containing 'date' and 'value' for this test. 'value' MUST be a number ONLY. Do not include units (e.g., use 120, not '120 mmHg')."
+    )
+    units: str = dspy.OutputField(
+        desc="The units of measurement for this test base on the records (e.g., 'mg/dL', 'mmHg'). if the units are different in the records, use the most common unit ie(convert uncommon units to common units)."
+    )
+    observations: str = dspy.OutputField(
+        desc="A concise, plain-English summary of the trends and clinical significance of these results, suitable for a layperson."
+    )
+    tips: str = dspy.OutputField(
+        desc="A concise tip on how to improve the test result if it is not normal or if it is not in the normal range. (compare to the normal range from standard online sources if possible)"
     )
 
 
 class VitalSignsAnalysisSignature(dspy.Signature):
     """
-    You are MedLM, an expert medical AI assistant. Your task is to analyze vital signs data.
+    You are MedLM, an expert medical AI assistant.
+    Your task is to extract quantitative vital signs and lab test results from the clinical text.
+    Organize the data by test type and date to facilitate tracking over time.
     """
 
-    input_data: dict = dspy.InputField(
-        desc="Vital signs data from patient clinical notes and lab reports"
+    input_data: str = dspy.InputField(
+        desc="Raw text from patient clinical notes and lab reports containing vital signs data."
     )
     date: str = dspy.OutputField(
-        desc="Date the analysis was done in yyyy-mm-dd ie the day you analyze this data"
+        desc="The date this analysis is being performed (YYYY-MM-DD)."
     )
     analysis: list[VitalSignsAnalysis] = dspy.OutputField(
-        desc="Analysis of the vital signs data"
+        desc="A structured list of analyzed vital signs, grouped by test name."
+    )
+
+
+class DocumentClassificationSignature(dspy.Signature):
+    """
+    You are MedLM, an expert medical AI assistant.
+    Your task is to analyze a medical document and classify it into a specific category.
+    Also, provide a concise, high-quality summary of its contents.
+    """
+
+    document_text: str = dspy.InputField(
+        desc="The extracted text content of the medical document."
+    )
+    category: str = dspy.OutputField(
+        desc="The category of the document. Options: 'Lab Report', 'Clinical Note', 'Imaging Report', 'Prescription', 'Other'."
+    )
+    summary: str = dspy.OutputField(
+        desc="A concise summary of the document's key information (diagnoses, results, plans), max 500 characters.",
+        max_length=500,
     )

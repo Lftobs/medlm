@@ -1,27 +1,161 @@
 import uuid
 from qdrant_client.models import PointStruct
 import threading
-from typing import Optional
 
-from app.services.vector_service import chunk_text, semantic_chunk_text, vector_service
-from celery.signals import worker_process_shutdown, worker_shutdown
+from app.services.vector_service import semantic_chunk_text, vector_service
 
 from app.core.celery_app import celery_app
 from app.core.db import engine
-from app.models import MedicalRecord, User, HealthTrend, TimelineEvent
+from app.models import MedicalRecord, User, HealthTrend, TimelineEvent, HealthVital
 from app.services.dicom_service import dicom_service
 from app.services.extraction_service import TextExtractionService
-from sqlmodel import Session, select
+from sqlmodel import Session
 from datetime import datetime, UTC
 from app.services.llm_service import llm_service
 from app.services.storage import storage_service
 from app.services.stream_service import stream_service
 import logging
 from pathlib import Path
-from app.core.utils import get_embedding_model, encode_texts
+# from app.core.utils import get_embedding_model, encode_texts
 
 
 logger = logging.getLogger(__name__)
+
+
+# def generate_and_store_embeddings(
+#     text: str, user_id: str, record_file_name: str, record_id: str
+# ):
+#     logger.info("Chunking text semantically...")
+
+#     model = get_embedding_model()
+
+#     chunks = semantic_chunk_text(text, model)
+#     logger.info(f"Text chunked into {len(chunks)} chunks")
+#     logger.info("Encoding chunks to embeddings...")
+
+#     docs_emb = encode_texts(
+#         chunks,
+#         batch_size=32,
+#     )
+
+#     stream_service.publish_sync(
+#         f"user:{user_id}:status",
+#         {
+#             "type": "file-operation",
+#             "status": "in_progress",
+#             "message": f"Generating AI embeddings for {record_file_name}...",
+#         },
+#     )
+
+#     doc_id = record_file_name
+#     points = [
+#         PointStruct(
+#             id=uuid.uuid4().hex,
+#             vector=embedding.tolist(),
+#             payload={
+#                 "user_id": user_id,
+#                 "doc_id": doc_id,
+#                 "chunk_id": chunk_id,
+#                 "text": chunks[chunk_id],
+#                 "record_id": record_id,
+#             },
+#         )
+#         for chunk_id, embedding in enumerate(docs_emb)
+#     ]
+
+#     logger.info(f"Created {len(points)} vector points, upserting to Qdrant...")
+
+#     try:
+#         vector_service.upsert_vectors("clinical_records", points)
+#         logger.info(f"Successfully upserted {len(points)} vectors to Qdrant")
+
+#         stream_service.publish_sync(
+#             f"user:{user_id}:status",
+#             {
+#                 "type": "file-operation",
+#                 "status": "in_progress",
+#                 "message": f"Finalizing secure storage for {record_file_name}...",
+#             },
+#         )
+#     except Exception as e:
+#         logger.error(f"Failed to upsert vectors to Qdrant: {e}", exc_info=True)
+#         stream_service.publish_sync(
+#             f"user:{user_id}:status",
+#             {
+#                 "type": "file-operation",
+#                 "status": "error",
+#                 "message": f"Error processing {record_file_name}",
+#             },
+#         )
+#         raise
+
+
+def analyze_and_store_document_content(text: str, record_id: str, user_id: str):
+    logger.info("Analyzing document content (summary and classification)...")
+
+    stream_service.publish_sync(
+        f"user:{user_id}:status",
+        {
+            "type": "file-operation",
+            "status": "in_progress",
+            "message": "Analyzing document content...",
+        },
+    )
+
+    try:
+        prediction = llm_service.classify_and_summarize(text)
+        summary = prediction.summary
+        category = prediction.category
+
+        logger.info(
+            f"Document classified as {category}. Summary length: {len(summary)}"
+        )
+
+        with Session(engine) as db:
+            record = db.get(MedicalRecord, record_id)
+            if record:
+                file_name = record.file_name
+                record.summary = summary
+                record.category = category
+                db.add(record)
+                db.commit()
+
+                try:
+                    memory_msg = f"{summary}"
+                    llm_service.memory_service.add_memory(
+                        msg=memory_msg,
+                        user_id=user_id,
+                        metadata={
+                            "source": "document_analysis",
+                            "record_id": record_id,
+                            "file_name": file_name,
+                            "category": category,
+                        },
+                    )
+                    logger.info(f"Added document analysis to memory for user {user_id}")
+                except Exception as mem_err:
+                    logger.error(f"Failed to add memory: {mem_err}")
+
+        stream_service.publish_sync(
+            f"user:{user_id}:status",
+            {
+                "type": "file-operation",
+                "status": "in_progress",
+                "message": "Document analysis complete.",
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to analyze document: {e}")
+        stream_service.publish_sync(
+            f"user:{user_id}:status",
+            {
+                "type": "file-operation",
+                "status": "error",
+                "message": "Error analyzing document content",
+            },
+        )
+        raise e
 
 
 @celery_app.task(name="app.worker.process_medical_record")
@@ -78,75 +212,12 @@ def process_medical_record(record_id: str, user_id: str):
                     },
                 )
 
-                logger.info("Chunking text semantically...")
+                # generate_and_store_embeddings(
+                #     text, user_id, record.file_name, str(record.id)
+                # )
 
-                model = get_embedding_model()
-
-                chunks = semantic_chunk_text(text, model)
-                logger.info(f"Text chunked into {len(chunks)} chunks")
-                logger.info("Encoding chunks to embeddings...")
-
-                docs_emb = encode_texts(
-                    chunks,
-                    batch_size=32,
-                )
-
-                stream_service.publish_sync(
-                    f"user:{user_id}:status",
-                    {
-                        "type": "file-operation",
-                        "status": "in_progress",
-                        "message": f"Generating AI embeddings for {record.file_name}...",
-                    },
-                )
-
-                doc_id = record.file_name
-                points = [
-                    PointStruct(
-                        id=uuid.uuid4().hex,
-                        vector=embedding.tolist(),
-                        payload={
-                            "user_id": user_id,
-                            "doc_id": doc_id,
-                            "chunk_id": chunk_id,
-                            "text": chunks[chunk_id],
-                            "record_id": str(record.id),
-                        },
-                    )
-                    for chunk_id, embedding in enumerate(docs_emb)
-                ]
-
-                logger.info(
-                    f"Created {len(points)} vector points, upserting to Qdrant..."
-                )
-
-                try:
-                    vector_service.upsert_vectors("clinical_records", points)
-                    logger.info(
-                        f"Successfully upserted {len(points)} vectors to Qdrant"
-                    )
-
-                    stream_service.publish_sync(
-                        f"user:{user_id}:status",
-                        {
-                            "type": "file-operation",
-                            "status": "in_progress",
-                            "message": f"Finalizing secure storage for {record.file_name}...",
-                        },
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"Failed to upsert vectors to Qdrant: {e}", exc_info=True
-                    )
-                    stream_service.publish_sync(
-                        f"user:{user_id}:status",
-                        {
-                            "type": "file-operation",
-                            "status": "error",
-                            "message": f"Error processing {record.file_name}",
-                        },
-                    )
-                    raise
+                analyze_and_store_document_content(text, str(record.id), user_id)
+                db.refresh(record)
 
                 record.processed_at = datetime.now(UTC)
             else:
@@ -179,9 +250,11 @@ def run_analysis_job(user_id: str, job_type: str | None = None):
     5. Publish to Redis
     """
 
-    logger.info(f"Starting {job_type or 'both'} analysis for user {user_id}")
+    logger.info(f"Starting {job_type or 'full'} analysis for user {user_id}")
 
-    start_type = job_type if job_type in ["timeline", "trends"] else "timeline"
+    start_type = (
+        job_type if job_type in ["timeline", "trends", "vitals"] else "timeline"
+    )
     if start_type == "trends":
         start_type = "trend"
 
@@ -267,10 +340,6 @@ def run_analysis_job(user_id: str, job_type: str | None = None):
                         "type": "trend",
                         "status": "success",
                         "message": "Trend analysis complete",
-                        "data": {
-                            "trends": analysis_data,
-                            "trend_summary": trend_summary,
-                        },
                     },
                 )
             except Exception as e:
@@ -323,11 +392,6 @@ def run_analysis_job(user_id: str, job_type: str | None = None):
                         "type": "timeline",
                         "status": "success",
                         "message": "Timeline analysis complete",
-                        "data": {
-                            "events": analysis_data,
-                            "timeline_summary": timeline_summary,
-                            "overall_summary": overall_summary,
-                        },
                     },
                 )
 
@@ -349,14 +413,67 @@ def run_analysis_job(user_id: str, job_type: str | None = None):
                     },
                 )
 
+        def run_vitals():
+            stream_service.publish_sync(
+                f"user:{user_id}:status",
+                {
+                    "type": "vitals",
+                    "status": "in_progress",
+                    "message": "Analyzing vital signs...",
+                },
+            )
+            try:
+                prediction = llm_service.analyze_vitals(full_text)
+                vitals_analysis = prediction.analysis
+
+                analysis_data = []
+                if vitals_analysis:
+                    for vital in vitals_analysis:
+                        v_dict = vital.model_dump()
+                        analysis_data.append(v_dict)
+
+                with Session(engine) as db_session:
+                    health_vital = HealthVital(
+                        user_id=user_id,
+                        analysis_data=analysis_data,
+                    )
+                    db_session.add(health_vital)
+                    db_session.commit()
+
+                stream_service.publish_sync(
+                    f"user:{user_id}:status",
+                    {
+                        "type": "vitals",
+                        "status": "success",
+                        "message": "Vital signs analysis complete",
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Vital signs analysis failed: {e}", exc_info=True)
+                stream_service.publish_sync(
+                    f"user:{user_id}:status",
+                    {
+                        "type": "vitals",
+                        "status": "error",
+                        "message": f"Vital signs analysis failed: {str(e)}",
+                    },
+                )
+
         if job_type == "trends":
             run_trends()
         elif job_type == "timeline":
             run_timeline()
+        elif job_type == "vitals":
+            run_vitals()
         else:
             thread_trends = threading.Thread(target=run_trends)
             thread_timeline = threading.Thread(target=run_timeline)
+            thread_vitals = threading.Thread(target=run_vitals)
+
             thread_trends.start()
             thread_timeline.start()
+            thread_vitals.start()
+
             thread_trends.join()
             thread_timeline.join()
+            thread_vitals.join()

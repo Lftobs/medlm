@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Sparkles, Send, TrendingUp, Info, FileText } from "lucide-react";
+import { Send, TrendingUp, Info } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -12,6 +12,8 @@ import {
 import { useRef, useState, useEffect } from "react";
 import { getTrends, streamChat, startTrendAnalysis } from "../../lib/api";
 import { useEventStream } from "../../hooks/use-event-stream";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export const Route = createFileRoute("/dashboard/chat")({
   component: AnalysisPage,
@@ -138,7 +140,7 @@ function AnalysisPage() {
     <div className="flex-1 p-6 md:p-8 max-w-6xl mx-auto w-full h-[calc(100vh-64px)] overflow-hidden flex flex-col">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-          <Sparkles size={24} className="text-blue-600" />
+          <img src="/medlm-icon.svg" className="w-8 h-8 rounded-lg shadow-sm" alt="MedLM" />
           Health IQ
         </h1>
         <p className="text-slate-500 mt-1">
@@ -156,22 +158,134 @@ function AnalysisPage() {
                 className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === "user" ? "bg-slate-200" : "bg-blue-100"}`}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === "user" ? "bg-slate-200" : "bg-blue-100"}`}
                 >
                   {msg.role === "user" ? (
                     <span className="text-xs font-bold text-slate-600">YO</span>
                   ) : (
-                    <Sparkles size={16} className="text-blue-600" />
+                    <img src="/medlm-icon.svg" className="w-5 h-5" alt="MedLM" />
                   )}
                 </div>
                 <div
-                  className={`p-3 rounded-2xl text-sm max-w-lg leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-blue-600 text-white rounded-tr-none"
-                      : "bg-slate-50 border border-slate-100 text-slate-700 rounded-tl-none"
-                  }`}
+                  className={`p-3 rounded-2xl text-sm max-w-lg leading-relaxed ${msg.role === "user"
+                    ? "bg-blue-600 text-white rounded-tr-none whitespace-pre-wrap"
+                    : "bg-slate-50 border border-slate-100 text-slate-700 rounded-tl-none prose prose-sm prose-slate max-w-none"
+                    }`}
                 >
-                  {msg.content}
+                  {msg.role === "ai" ? (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ ...props }) => (
+                          <p className="mb-2 last:mb-0" {...props} />
+                        ),
+                        ul: ({ ...props }) => (
+                          <ul className="list-disc pl-4 mb-2" {...props} />
+                        ),
+                        ol: ({ ...props }) => (
+                          <ol className="list-decimal pl-4 mb-2" {...props} />
+                        ),
+                        li: ({ ...props }) => (
+                          <li className="mb-1" {...props} />
+                        ),
+                        code: ({ inline, ...props }: any) =>
+                          inline ? (
+                            <code
+                              className="bg-slate-200 px-1 py-0.5 rounded text-xs font-mono"
+                              {...props}
+                            />
+                          ) : (
+                            <code
+                              className="block bg-slate-800 text-slate-100 p-3 rounded-lg text-xs overflow-x-auto font-mono my-2"
+                              {...props}
+                            />
+                          ),
+                        pre: ({ ...props }) => (
+                          <pre className="my-2" {...props} />
+                        ),
+                        strong: ({ ...props }) => (
+                          <strong
+                            className="font-semibold text-slate-900"
+                            {...props}
+                          />
+                        ),
+                        em: ({ ...props }) => (
+                          <em className="italic" {...props} />
+                        ),
+                        h1: ({ ...props }) => (
+                          <h1
+                            className="text-lg font-bold mb-2 mt-3 first:mt-0 text-slate-900"
+                            {...props}
+                          />
+                        ),
+                        h2: ({ ...props }) => (
+                          <h2
+                            className="text-base font-bold mb-2 mt-3 first:mt-0 text-slate-900"
+                            {...props}
+                          />
+                        ),
+                        h3: ({ ...props }) => (
+                          <h3
+                            className="text-sm font-bold mb-1 mt-2 first:mt-0 text-slate-800"
+                            {...props}
+                          />
+                        ),
+                        blockquote: ({ ...props }) => (
+                          <blockquote
+                            className="border-l-4 border-blue-400 pl-4 py-2 my-2 bg-blue-50 rounded-r text-slate-700 italic"
+                            {...props}
+                          />
+                        ),
+                        a: ({ ...props }) => (
+                          <a
+                            className="text-blue-600 hover:text-blue-700 underline font-medium"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            {...props}
+                          />
+                        ),
+                        table: ({ ...props }) => (
+                          <div className="overflow-x-auto my-2">
+                            <table
+                              className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded"
+                              {...props}
+                            />
+                          </div>
+                        ),
+                        thead: ({ ...props }) => (
+                          <thead className="bg-slate-100" {...props} />
+                        ),
+                        tbody: ({ ...props }) => (
+                          <tbody
+                            className="bg-white divide-y divide-slate-200"
+                            {...props}
+                          />
+                        ),
+                        tr: ({ ...props }) => (
+                          <tr className="hover:bg-slate-50" {...props} />
+                        ),
+                        th: ({ ...props }) => (
+                          <th
+                            className="px-3 py-2 text-left text-xs font-semibold text-slate-700"
+                            {...props}
+                          />
+                        ),
+                        td: ({ ...props }) => (
+                          <td
+                            className="px-3 py-2 text-xs text-slate-600"
+                            {...props}
+                          />
+                        ),
+                        hr: ({ ...props }) => (
+                          <hr className="my-3 border-slate-200" {...props} />
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  ) : (
+                    msg.content
+                  )}
                   {msg.role === "ai" &&
                     idx === messages.length - 1 &&
                     isTyping && (
@@ -222,60 +336,6 @@ function AnalysisPage() {
 
         {/* Right Panel: Analyzed Sources */}
         <div className="hidden lg:flex flex-col gap-4 min-h-0 overflow-y-auto">
-          {/* Interactive Chart Context */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 h-64 shadow-sm">
-            <h4 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-              <TrendingUp size={14} /> Total Cholesterol (mg/dL)
-            </h4>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#e2e8f0"
-                />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#94a3b8" }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#94a3b8" }}
-                  domain={["dataMin - 10", "dataMax + 10"]}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
-                  itemStyle={{
-                    color: "#0f172a",
-                    fontSize: "13px",
-                    fontWeight: 500,
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#2563eb"
-                  strokeWidth={3}
-                  dot={{
-                    r: 4,
-                    fill: "#2563eb",
-                    strokeWidth: 2,
-                    stroke: "#fff",
-                  }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
             <div className="flex items-start gap-3">
               <Info size={18} className="text-blue-600 mt-0.5" />

@@ -41,7 +41,7 @@ class StreamService:
                     yield message["data"]
         finally:
             await pubsub.unsubscribe(channel)
-            await pubsub.close()
+            await pubsub.aclose()
 
 
 stream_service = StreamService()

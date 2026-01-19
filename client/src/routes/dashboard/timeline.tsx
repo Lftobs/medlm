@@ -12,7 +12,13 @@ import {
   AlertCircle,
   Clock,
 } from "lucide-react";
-import { getTimeline, uploadFiles, simplifyText } from "../../lib/api";
+import {
+  getTimeline,
+  uploadFiles,
+  simplifyText,
+  startTimelineAnalysis,
+} from "../../lib/api";
+import { useEventStream } from "../../hooks/use-event-stream";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
@@ -30,10 +36,16 @@ function TimelinePage() {
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [yearSortDesc, setYearSortDesc] = useState(true); // true = newest first, false = oldest first
+  const [isAnalyzing, setIsAnalyzing] = useState(false); // New state (AnalysisOverlay logic needed if I want the full UI, or just simple loading)
+  // For consistency with Trends, I should probably add the overlay, but user only asked for the button.
+  // I'll stick to simple loading or just toast for now since Timeline didn't have the overlay code. 
+  // Actually, I should probably use `isUploading` style overlay or add a message.
+  // Let's keep it simple: Button shows spinner.
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { eventTitle } = Route.useSearch();
-
 
   useEffect(() => {
     if (eventTitle && timelineEvents.length > 0 && !selectedEvent) {
@@ -54,8 +66,9 @@ function TimelinePage() {
         // API now returns { id, analysis_summary, timeline_summary, analysis_data: [...] }
         // Or null if no timeline exists
         if (data && data.analysis_data && data.analysis_data.length > 0) {
-          const grouped = groupEventsByYear(data.analysis_data);
+          const grouped = groupEventsByYear(data.analysis_data, yearSortDesc);
           setTimelineEvents(grouped);
+          if (data.created_at) setLastAnalyzedAt(data.created_at);
         } else {
           setTimelineEvents([]);
         }
@@ -65,7 +78,45 @@ function TimelinePage() {
         setTimelineEvents([]);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [yearSortDesc]);
+
+  const toggleYearSort = () => {
+    setYearSortDesc(!yearSortDesc);
+  };
+
+  // Listen for SSE timeline events
+  useEventStream((event) => {
+    if (typeof event !== "object") return;
+    if (event.type === "timeline_started") setIsAnalyzing(true);
+    if (event.type === "timeline_complete") {
+      setIsAnalyzing(false);
+      toast.success("Timeline analysis complete!");
+      // Refresh logic would go here - for now user can reload or I can re-fetch
+      // Let's re-fetch
+      getTimeline().then((data) => {
+        if (data && data.analysis_data) {
+          setTimelineEvents(groupEventsByYear(data.analysis_data, yearSortDesc));
+          if (data.created_at) setLastAnalyzedAt(data.created_at);
+        }
+      });
+    }
+    if (event.type === "timeline_failed") {
+      setIsAnalyzing(false);
+      toast.error("Timeline analysis failed");
+    }
+  });
+
+  const handleRescan = async () => {
+    setIsAnalyzing(true);
+    try {
+      await startTimelineAnalysis();
+      toast.info("Timeline analysis started...");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to start analysis");
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -156,53 +207,106 @@ function TimelinePage() {
   }
 
   return (
-    <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto w-full">
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Health Timeline
-        </h1>
-        <p className="text-slate-500 mt-1">
-          Chronological history of your medical journey.
-        </p>
+    <div className="flex-1 p-6 md:p-8 max-w-5xl mx-auto w-full">
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Health Timeline
+            </h1>
+            <p className="text-slate-500 mt-1">
+              Chronological history of your medical journey.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleYearSort}
+              className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <Clock size={16} />
+              {yearSortDesc ? "Newest First" : "Oldest First"}
+            </button>
+            {/* Rescan Button (Only if > 30 days) */}
+            {lastAnalyzedAt && (new Date().getTime() - new Date(lastAnalyzedAt).getTime() > 30 * 24 * 60 * 60 * 1000) && (
+              <button
+                onClick={handleRescan}
+                disabled={isAnalyzing}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center gap-2 shadow-sm"
+                title="Data is older than 30 days. Click to rescan."
+              >
+                {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                Rescan
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="relative border-l-2 border-slate-200 ml-4 md:ml-8 space-y-12 pb-12">
+      <div className="relative space-y-12 pb-12">
+        {/* Central Timeline */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-200 -translate-x-1/2"></div>
         {timelineEvents.map((yearGroup, yIndex) => (
           <div key={yearGroup.year} className="relative">
-            {/* Year Marker */}
-            <div className="absolute -left-[45px] md:-left-[53px] top-0 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-md border border-blue-200">
+            {/* Year Marker - Centered */}
+            <div className="absolute left-1/2 -translate-x-1/2 -top-2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full border-2 border-white shadow-md z-20">
               {yearGroup.year}
             </div>
 
-            <div className="space-y-8 pt-2">
+            <div className="space-y-8 pt-8">
               {yearGroup.events.map((event: any, index: number) => (
                 <motion.div
                   key={`${yearGroup.year}-${index}`}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: event.is_major ? 20 : -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{
                     duration: 0.4,
                     delay: yIndex * 0.1 + index * 0.1,
                   }}
-                  className="relative pl-8 md:pl-10 group cursor-pointer"
+                  className={`relative group cursor-pointer flex ${event.is_major
+                    ? "justify-start pl-[calc(50%+2rem)]"
+                    : "justify-end pr-[calc(50%+2rem)]"
+                    }`}
                   onClick={() => setSelectedEvent(event)}
                 >
-                  {/* Node */}
-                  <div className="absolute -left-[9px] top-1.5 w-4 h-4 bg-white border-4 border-blue-500 rounded-full shadow-sm z-10 group-hover:scale-110 transition-transform"></div>
+                  {/* Node - positioned at center */}
+                  <div
+                    className={`absolute left-1/2 -translate-x-1/2 top-3 w-4 h-4 bg-white rounded-full shadow-md z-10 group-hover:scale-125 transition-transform ${event.is_major
+                      ? "border-4 border-blue-500"
+                      : "border-2 border-slate-400"
+                      }`}
+                  ></div>
 
                   {/* Content Card */}
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm group-hover:shadow-md group-hover:border-blue-300 transition-all relative">
-                    {/* Connector Line */}
-                    <div className="absolute top-3.5 left-[-32px] md:left-[-40px] w-8 h-[2px] bg-slate-200"></div>
+                  <div
+                    className={`bg-white p-5 rounded-xl border shadow-sm group-hover:shadow-md transition-all relative max-w-md w-full ${event.is_major
+                      ? "border-slate-200 group-hover:border-blue-300"
+                      : "border-slate-200 group-hover:border-slate-300 opacity-90"
+                      }`}
+                  >
+                    {/* Connector Line from center to card */}
+                    <div
+                      className={`absolute top-5 h-0.5 bg-slate-200 w-6 ${event.is_major ? "left-[-1.5rem]" : "right-[-1.5rem]"
+                        }`}
+                    ></div>
 
-                    <div className="flex justify-between items-start">
-                      <div className="flex gap-4 flex-1">
-                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 border border-slate-100 shrink-0 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 transition-colors ${event.is_major
+                            ? "bg-slate-50 text-slate-500 border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-600"
+                            : "bg-slate-50 text-slate-400 border-slate-100 group-hover:bg-slate-100 group-hover:text-slate-500"
+                            }`}
+                        >
                           {getIcon(event.type)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3
+                              className={`font-semibold transition-colors ${event.is_major
+                                ? "text-slate-900 group-hover:text-blue-700"
+                                : "text-slate-700 group-hover:text-slate-900"
+                                }`}
+                            >
                               {event.title}
                             </h3>
                             {event.is_major && (
@@ -211,18 +315,18 @@ function TimelinePage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-slate-600 mt-0.5 line-clamp-2">
-                            {event.desc}
-                          </p>
-                          <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                            <span>Click for details</span>
-                            <span>→</span>
-                          </p>
+                          <span className="text-xs font-medium text-slate-400 block mt-1">
+                            {event.date}
+                          </span>
                         </div>
                       </div>
-                      <span className="text-xs font-medium text-slate-400 whitespace-nowrap ml-4">
-                        {event.date}
-                      </span>
+                      <p className="text-sm text-slate-600 line-clamp-2">
+                        {event.desc}
+                      </p>
+                      <p className="text-xs text-blue-600 flex items-center gap-1">
+                        <span>Click for details</span>
+                        <span>→</span>
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -560,7 +664,7 @@ function getIcon(type: string) {
   return <FileText size={18} />;
 }
 
-function groupEventsByYear(events: any[]) {
+function groupEventsByYear(events: any[], sortDesc: boolean = true) {
   // events: analysis_data array from API
   // Format: [{ date: 'YYYY-MM-DD', event: '...', category: '...', description: '...' }]
   const grouped: Record<number, any[]> = {};
@@ -572,11 +676,13 @@ function groupEventsByYear(events: any[]) {
       event.date ||
       event.created_at ||
       new Date().toISOString();
-    const year = new Date(dateStr).getFullYear();
+    const dateObj = new Date(dateStr);
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth(); // 0-11
+
     if (!grouped[year]) grouped[year] = [];
 
     // Format date to 'MMM DD'
-    const dateObj = new Date(dateStr);
     const formattedDate = dateObj.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -599,12 +705,21 @@ function groupEventsByYear(events: any[]) {
         event.description ||
         event.details ||
         "No details available",
+      dateObj: dateObj,
+      month: month,
     });
   });
 
-  // Convert to array and sort desc (newest first)
+  // Sort events within each year by month (Dec to Jan: 11 to 0)
+  Object.keys(grouped).forEach((year) => {
+    grouped[Number(year)].sort((a, b) => {
+      return b.month - a.month; // December (11) first, January (0) last
+    });
+  });
+
+  // Convert to array and sort by year based on sortDesc parameter
   return Object.keys(grouped)
-    .sort((a, b) => Number(b) - Number(a))
+    .sort((a, b) => (sortDesc ? Number(b) - Number(a) : Number(a) - Number(b)))
     .map((year) => ({
       year: Number(year),
       events: grouped[Number(year)],

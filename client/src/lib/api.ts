@@ -96,6 +96,28 @@ export async function startTimelineAnalysis() {
   return response.json();
 }
 
+export async function getVitals() {
+  const response = await fetch(`${API_BASE_URL}/api/analyze/vitals`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to fetch vitals");
+  const data = await response.json();
+  // Return the latest vitals (first in list) or null
+  if (data.vitals && data.vitals.length > 0) {
+    return data.vitals[0];
+  }
+  return null;
+}
+
+export async function startVitalsAnalysis() {
+  const response = await fetch(`${API_BASE_URL}/api/analyze/vitals`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to start vitals analysis");
+  return response.json();
+}
+
 export async function streamChat(
   message: string,
   context: Record<string, any> | null,
@@ -218,4 +240,27 @@ export function getStreamSource() {
   return new EventSource(`${API_BASE_URL}/api/stream`, {
     withCredentials: true,
   });
+}
+
+export async function deleteRecords(recordIds: string[]) {
+  const response = await fetch(`${API_BASE_URL}/api/upload/records`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ record_ids: recordIds }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Failed to delete records";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.detail || errorMessage;
+    } catch (e) {
+      // Ignore
+    }
+    throw new Error(errorMessage);
+  }
+  return response.json();
 }

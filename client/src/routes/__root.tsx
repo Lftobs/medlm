@@ -17,11 +17,27 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'MedLM | The Medical Narrator',
+        title: 'MedLM - AI Medical Health Assistant',
       },
       {
         name: 'description',
-        content: 'Understand your medical history with the power of Gemini 3.',
+        content: 'MedLM is your advanced AI-powered health assistant. Analyze medical records, track vitals, and get personalized health insights securely.',
+      },
+      {
+        name: 'keywords',
+        content: 'medical AI, health assistant, analyze medical records, vitals tracking, personalized health',
+      },
+      {
+        property: 'og:title',
+        content: 'MedLM - AI Medical Health Assistant',
+      },
+      {
+        property: 'og:description',
+        content: 'MedLM transforms your scattered medical records into an intelligent, interactive health narrative.',
+      },
+      {
+        property: 'og:image',
+        content: '/medlm-icon.svg',
       },
     ],
     links: [
@@ -41,6 +57,11 @@ export const Route = createRootRoute({
       {
         rel: 'stylesheet',
         href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+      },
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: '/medlm-icon.svg',
       },
     ],
   }),

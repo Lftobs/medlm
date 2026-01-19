@@ -26,7 +26,7 @@ async def get_current_user(
         return user
 
     session_token = request.cookies.get("better-auth.session_token")
-    print(session_token, "ses")
+
     if session_token:
         session_token = session_token.split(".")[0]
     if not session_token:
@@ -39,13 +39,11 @@ async def get_current_user(
         )
     ).first()
 
-    print(session, "session")
-
     if not session:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 
     user = db.get(User, session.userId)
-    print(user, "user")
+
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 

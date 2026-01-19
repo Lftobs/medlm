@@ -1,10 +1,7 @@
-import os
 import logging
-import signal
-import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, Request, Response
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.api.deps import get_current_user
@@ -82,3 +79,14 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/api/cors-check")
+async def cors_check(request: Request):
+    """Debug endpoint to verify CORS configuration"""
+    return {
+        "cors_origins": settings.BACKEND_CORS_ORIGINS,
+        "request_origin": request.headers.get("origin"),
+        "request_headers": dict(request.headers),
+        "cors_configured": True,
+    }

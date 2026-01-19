@@ -17,6 +17,7 @@ import { Route as DashboardTrendsRouteImport } from './routes/dashboard/trends'
 import { Route as DashboardTimelineRouteImport } from './routes/dashboard/timeline'
 import { Route as DashboardRecordsRouteImport } from './routes/dashboard/records'
 import { Route as DashboardChatRouteImport } from './routes/dashboard/chat'
+import { Route as DashboardChartsRouteImport } from './routes/dashboard/charts'
 import { Route as DashboardRecordsRecordIdRouteImport } from './routes/dashboard/records/$recordId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 
@@ -60,6 +61,11 @@ const DashboardChatRoute = DashboardChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardChartsRoute = DashboardChartsRouteImport.update({
+  id: '/charts',
+  path: '/charts',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardRecordsRecordIdRoute =
   DashboardRecordsRecordIdRouteImport.update({
     id: '/$recordId',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/charts': typeof DashboardChartsRoute
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/records': typeof DashboardRecordsRouteWithChildren
   '/dashboard/timeline': typeof DashboardTimelineRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/dashboard/charts': typeof DashboardChartsRoute
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/records': typeof DashboardRecordsRouteWithChildren
   '/dashboard/timeline': typeof DashboardTimelineRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/charts': typeof DashboardChartsRoute
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/records': typeof DashboardRecordsRouteWithChildren
   '/dashboard/timeline': typeof DashboardTimelineRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/dashboard/charts'
     | '/dashboard/chat'
     | '/dashboard/records'
     | '/dashboard/timeline'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/dashboard/charts'
     | '/dashboard/chat'
     | '/dashboard/records'
     | '/dashboard/timeline'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/dashboard/charts'
     | '/dashboard/chat'
     | '/dashboard/records'
     | '/dashboard/timeline'
@@ -211,6 +223,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardChatRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/charts': {
+      id: '/dashboard/charts'
+      path: '/charts'
+      fullPath: '/dashboard/charts'
+      preLoaderRoute: typeof DashboardChartsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/records/$recordId': {
       id: '/dashboard/records/$recordId'
       path: '/$recordId'
@@ -240,6 +259,7 @@ const DashboardRecordsRouteWithChildren =
   DashboardRecordsRoute._addFileChildren(DashboardRecordsRouteChildren)
 
 interface DashboardRouteChildren {
+  DashboardChartsRoute: typeof DashboardChartsRoute
   DashboardChatRoute: typeof DashboardChatRoute
   DashboardRecordsRoute: typeof DashboardRecordsRouteWithChildren
   DashboardTimelineRoute: typeof DashboardTimelineRoute
@@ -248,6 +268,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardChartsRoute: DashboardChartsRoute,
   DashboardChatRoute: DashboardChatRoute,
   DashboardRecordsRoute: DashboardRecordsRouteWithChildren,
   DashboardTimelineRoute: DashboardTimelineRoute,

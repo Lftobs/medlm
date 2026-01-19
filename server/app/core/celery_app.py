@@ -17,15 +17,22 @@ celery_app = Celery(
 #     "app.worker.run_analysis_job": "main-queue",
 # }
 
-celery_app.conf.worker_pool = "solo"
+celery_app.conf.worker_pool = "gevent"
+celery_app.conf.worker_concurrency = 50
+
 
 celery_app.conf.update(
+    worker_pool="gevent",
+    worker_concurrency=50,
+    worker_prefetch_multiplier=1,
+    task_acks_late=True,
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
 )
+
 
 
 @worker_shutdown.connect

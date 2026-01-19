@@ -21,3 +21,18 @@ async def stream_events(current_user: User = Depends(get_current_user)):
             yield {"data": message}
 
     return EventSourceResponse(event_generator())
+
+@router.get("/api/stream/all")
+async def stream_events():
+    """
+    SSE Endpoint for real-time updates.
+    Listens to all Redis channels.
+    """
+    channel = "*"
+
+    async def event_generator():
+        yield {"event": "connected", "data": "connected"}
+        async for message in stream_service.subscribe(channel):
+            yield {"data": message}
+
+    return EventSourceResponse(event_generator())

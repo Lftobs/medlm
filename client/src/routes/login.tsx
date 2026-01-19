@@ -1,7 +1,6 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { signIn } from '../lib/auth-client'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
 
 export const Route = createFileRoute('/login')({
     component: LoginPage,
@@ -24,9 +23,7 @@ function LoginPage() {
                 className="w-full max-w-md"
             >
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 mb-6">
-                        <Sparkles size={24} />
-                    </div>
+                    <img src="/medlm-icon.svg" className="w-16 h-16 mx-auto mb-6 rounded-2xl shadow-lg hover:scale-105 transition-transform" alt="MedLM" />
                     <h1 className="text-2xl font-semibold text-slate-900 mb-2">Welcome to MedLM</h1>
                     <p className="text-slate-600">Sign in to access your medical history narrative</p>
                 </div>

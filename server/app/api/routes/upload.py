@@ -4,6 +4,7 @@ from typing import List
 from datetime import datetime
 import mimetypes
 import logging
+from pydantic import BaseModel
 
 from app.api.deps import get_current_user
 from app.core.db import get_session
@@ -163,3 +164,42 @@ async def list_medical_records(
             for record in records
         ]
     }
+
+class DeleteRecordsRequest(BaseModel):
+    record_ids: List[str]
+
+@router.delete("/records")
+async def delete_records(
+    request: DeleteRecordsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """Delete multiple medical records."""
+
+    # Verify records belong to user
+    statement = select(MedicalRecord).where(
+        MedicalRecord.id.in_(request.record_ids),
+        MedicalRecord.user_id == current_user.id
+    )
+    records = db.exec(statement).all()
+
+    if not records:
+         raise HTTPException(status_code=404, detail="No records found to delete")
+
+    deleted_count = 0
+    for record in records:
+        try:
+             # Delete from S3/Storage
+             if record.s3_key:
+                storage_service.delete_file(record.s3_key)
+             # Delete from DB
+             db.delete(record)
+             deleted_count += 1
+        except Exception as e:
+            logger.error(f"Failed to delete record {record.id}: {e}")
+            # Continue deleting others even if one fails
+            continue
+
+    db.commit()
+
+    return {"message": f"Successfully deleted {deleted_count} records"}

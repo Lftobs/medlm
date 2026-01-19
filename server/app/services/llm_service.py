@@ -3,6 +3,7 @@ from app.core.utils import get_embedding_model
 from .llm.memory_service import memory_service
 import logging
 import threading
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -14,53 +15,58 @@ class LLMService:
     _embedding_model = None
     _chat_predictor = None
     _text_simplification_predictor = None
+    _document_classifier_predictor = None
+    _vital_signs_predictor = None
     _init_lock = threading.Lock()
-    _dspy_configured = False
 
     @classmethod
     def _initialize_dspy(cls):
-        """Initialize DSPy with OpenRouter configuration (lazy initialization)."""
-        with cls._init_lock:
-            if cls._lm is None:
-                import dspy
-                from .llm.signatures import (
-                    TimelineAnalysisSignature,
-                    TrendAnalysisSignature,
-                    ChatMedLm,
-                    TextSimplificationSignature,
-                )
-
-                cls._lm = dspy.LM(
-                    model="gemini/gemini-2.5-flash",
-                    api_key=settings.GEMINI_API_KEY,
-                    temperature=0.3,
-                    cache=True,
-                )
-                cls._timeline_predictor = dspy.Predict(TimelineAnalysisSignature)
-                cls._trend_predictor = dspy.Predict(TrendAnalysisSignature)
-                cls._chat_predictor = dspy.ChainOfThought(ChatMedLm)
-                cls._text_simplification_predictor = dspy.ChainOfThought(
-                    TextSimplificationSignature
-                )
-            if cls._embedding_model is None:
-                cls._embedding_model = get_embedding_model()
-
-            if not cls._dspy_configured:
-                try:
+        if cls._lm is None:
+            with cls._init_lock:
+                if cls._lm is None:
                     import dspy
+                    from .llm.signatures import (
+                        TimelineAnalysisSignature,
+                        TrendAnalysisSignature,
+                        ChatMedLm,
+                        TextSimplificationSignature,
+                        DocumentClassificationSignature,
+                        VitalSignsAnalysisSignature,
+                    )
 
-                    dspy.configure(lm=cls._lm)
-                    cls._dspy_configured = True
-                except RuntimeError:
-                    logger.debug("DSPy already configured by another thread")
-                    cls._dspy_configured = True
+                    cls._lm = dspy.LM(
+                        model="gemini/gemini-2.5-flash",
+                        api_key=settings.GEMINI_API_KEY,
+                        temperature=0.3,
+                        cache=True,
+                    )
+                    try:
+                        dspy.configure(lm=cls._lm)
+                        logger.info("DSPy configured with LM successfully")
+                    except RuntimeError as e:
+                        logger.debug(f"DSPy already configured: {e}")
+
+                    cls._timeline_predictor = dspy.Predict(TimelineAnalysisSignature)
+                    cls._trend_predictor = dspy.Predict(TrendAnalysisSignature)
+                    cls._chat_predictor = dspy.ChainOfThought(ChatMedLm)
+                    cls._text_simplification_predictor = dspy.Predict(
+                        TextSimplificationSignature
+                    )
+                    cls._document_classifier_predictor = dspy.Predict(
+                        DocumentClassificationSignature
+                    )
+                    cls._vital_signs_predictor = dspy.Predict(
+                        VitalSignsAnalysisSignature
+                    )
+
+                    if cls._embedding_model is None:
+                        cls._embedding_model = get_embedding_model()
 
     def __init__(self):
         self.memory_service = memory_service
         self._initialized = False
 
     def _ensure_initialized(self):
-        """Ensure DSPy is initialized before use."""
         if not self._initialized:
             logger.info("Lazy-loading LLM service...")
             self._initialize_dspy()
@@ -68,7 +74,6 @@ class LLMService:
 
     @classmethod
     def cleanup(cls):
-        """Cleanup resources to prevent event loop errors on shutdown."""
         if cls._lm:
             logger.info("Cleaning up LLM service resources...")
             cls._lm = None
@@ -76,28 +81,57 @@ class LLMService:
             cls._trend_predictor = None
             cls._chat_predictor = None
             cls._text_simplification_predictor = None
+            cls._document_classifier_predictor = None
+            cls._vital_signs_predictor = None
 
             logger.info("LLM service resources cleaned up")
 
+    async def chat_medlm_async(
+        self, user_id: str, message: str, user_context: dict = None
+    ):
+        """Async wrapper for chat_medlm that yields chunks as an async generator."""
+        loop = asyncio.get_event_loop()
+        queue = asyncio.Queue()
+
+        def producer():
+            try:
+                # Iterate over the sync generator
+                for chunk in self.chat_medlm(user_id, message, user_context):
+                    loop.call_soon_threadsafe(queue.put_nowait, chunk)
+                # Signal completion
+                loop.call_soon_threadsafe(queue.put_nowait, None)
+            except Exception as e:
+                logger.error(f"Error in chat_medlm producer: {e}", exc_info=True)
+                loop.call_soon_threadsafe(queue.put_nowait, e)
+
+        # Run producer in a separate thread
+        threading.Thread(target=producer, daemon=True).start()
+
+        while True:
+            # Wait for next chunk
+            chunk = await queue.get()
+
+            if chunk is None:
+                # Completion sentinel
+                break
+
+            if isinstance(chunk, Exception):
+                # Re-raise or yield error message
+                yield f"I apologize, but I encountered an error: {str(chunk)}"
+                break
+
+            yield chunk
+
     def chat_medlm(self, user_id: str, message: str, user_context: dict = None):
-        """
-        Stream chat responses using DSPy with combined memory context from Qdrant and mem0.
-
-        Args:
-            user_id: User identifier
-            message: User's chat message
-            user_context: Optional additional context (e.g., current page, selected records)
-
-        Yields:
-            String chunks of the response
-        """
         self._ensure_initialized()
+        response_text = ""
         try:
             memory_results = self.memory_service.search_combined_memory(
                 user_id, message
             )
 
             context = {
+                "document_summaries": memory_results.get("document_summaries", []),
                 "qdrant_results": memory_results.get("qdrant", []),
                 "mem0_results": memory_results.get("mem0", []),
                 "user_context": user_context or {},
@@ -105,59 +139,65 @@ class LLMService:
 
             formatted_context = self._format_context_for_chat(context)
 
-            print(formatted_context, "formatted")
-
             logger.info(
-                f"Chat context prepared with {len(memory_results.get('qdrant', []))} Qdrant results and {len(memory_results.get('mem0', []))} mem0 results"
+                f"Chat context prepared with {len(memory_results.get('document_summaries', []))} summaries, "
+                f"{len(memory_results.get('qdrant', []))} Qdrant results and "
+                f"{len(memory_results.get('mem0', []))} mem0 results"
             )
 
-            prediction = self._chat_predictor(
-                context=formatted_context, user_input=message
-            )
+            import dspy
 
-            print(prediction)
+            with dspy.context(lm=self._lm):
+                try:
+                    prediction = self._chat_predictor(
+                        context=formatted_context, user_input=message
+                    )
+                    response_text = prediction.response
+                    conversation = [
+                        {"role": "user", "content": message},
+                        {"role": "assistant", "content": response_text},
+                    ]
+                    
+                    logger.info("Chat completed. Attempting to save chat memory...")
 
-            # Stream the response in chunks
-            response_text = prediction.response
-            chunk_size = 50  # Characters per chunk
+                    self.memory_service.add_memory(
+                        msg=[
+                            {"role": "user", "content": message},
+                            {"role": "assistant", "content": response_text},
+                        ],
+                        user_id=user_id,
+                        metadata={
+                            "source": "chat_medlm",
+                            "has_qdrant_context": len(memory_results.get("qdrant", [])) > 0,
+                            "has_mem0_context": len(memory_results.get("mem0", [])) > 0,
+                        },
+                    )
+                    
+                    logger.info("Chat memory saved successfully")
 
-            for i in range(0, len(response_text), chunk_size):
-                chunk = response_text[i : i + chunk_size]
-                yield chunk
+                    chunk_size = 20
+                    for i in range(0, len(response_text), chunk_size):
+                        chunk = response_text[i : i + chunk_size]
+                        yield chunk
 
-            # Convert conversation to string format for mem0
-            conversation_text = f"User: {message}\nAssistant: {response_text}"
-            self.memory_service.add_memory(
-                msg=conversation_text,
-                user_id=user_id,
-                metadata={
-                    "source": "chat_medlm",
-                    "has_qdrant_context": len(memory_results.get("qdrant", [])) > 0,
-                    "has_mem0_context": len(memory_results.get("mem0", [])) > 0,
-                },
-            )
+                except Exception as e:
+                    logger.error(f"Chat predictor failed: {e}", exc_info=True)
+                    yield f"I apologize, but I encountered an error: {str(e)}"
+                    return
+
+            
 
         except Exception as e:
             logger.error(f"Error in chat_medlm: {e}", exc_info=True)
             yield f"I apologize, but I encountered an error: {str(e)}"
 
     def _format_context_for_chat(self, context: dict) -> dict:
-        """
-        Format the combined context for better readability in chat.
-
-        Args:
-            context: Dict with qdrant_results, mem0_results, and user_context
-
-        Returns:
-            Formatted context dict
-        """
         formatted = {
+            "document_summaries": context.get("document_summaries", []),
             "clinical_records": [],
             "conversation_history": [],
             "additional_context": context.get("user_context", {}),
         }
-
-        print(formatted, "[formatted]")
 
         for idx, result in enumerate(context.get("qdrant_results", []), 1):
             formatted["clinical_records"].append(
@@ -180,21 +220,45 @@ class LLMService:
         return formatted
 
     def analyze_trends(self, record_input: str):
-        """Analyze trends from the clinical records."""
         self._ensure_initialized()
-        prediction = self._trend_predictor(record_input=record_input)
+        import dspy
+
+        with dspy.context(lm=self._lm):
+            prediction = self._trend_predictor(record_input=record_input)
         return prediction
 
     def extract_timeline(self, record_input: str):
-        """Extract timeline from the clinical records."""
         self._ensure_initialized()
-        prediction = self._timeline_predictor(record_input=record_input)
+        import dspy
+
+        with dspy.context(lm=self._lm):
+            prediction = self._timeline_predictor(record_input=record_input)
         return prediction
 
     def simplify_text(self, input_text: str):
-        """Simplify complex medical text for layman understanding."""
         self._ensure_initialized()
-        prediction = self._text_simplification_predictor(input_text=input_text)
+        import dspy
+
+        with dspy.context(lm=self._lm):
+            prediction = self._text_simplification_predictor(input_text=input_text)
+        return prediction
+
+    def classify_and_summarize(self, document_text: str):
+        self._ensure_initialized()
+        import dspy
+
+        with dspy.context(lm=self._lm):
+            prediction = self._document_classifier_predictor(
+                document_text=document_text
+            )
+        return prediction
+
+    def analyze_vitals(self, input_data: str):
+        self._ensure_initialized()
+        import dspy
+
+        with dspy.context(lm=self._lm):
+            prediction = self._vital_signs_predictor(input_data=input_data)
         return prediction
 
 

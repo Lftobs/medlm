@@ -5,18 +5,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload,
   Sparkles,
-  ChevronRight,
-  Plus,
   Loader2,
   Activity,
   FileText,
-  File,
-  TrendingUp,
+  User as UserIcon,
 } from "lucide-react";
-import { User as UserIcon } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useRef, useState, useEffect } from "react";
 import { useEventStream } from "../../hooks/use-event-stream";
 import { AnalysisOverlay } from "../../components/AnalysisOverlay";
+import { HealthFocusCard } from "../../components/HealthFocusCard";
+import { VitalCard } from "../../components/VitalCard";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardOverview,
@@ -31,6 +30,7 @@ function DashboardOverview() {
   const [logs, setLogs] = useState<string[]>([]);
   const [timelineData, setTimelineData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [vitals, setVitals] = useState<any[]>([]);
 
   const fetchTimeline = () => {
     setLoading(true);
@@ -51,6 +51,15 @@ function DashboardOverview() {
 
   useEffect(() => {
     fetchTimeline();
+
+    // Fetch vitals
+    import("../../lib/api").then(({ getVitals }) => {
+      getVitals().then(data => {
+        if (data && data.analysis_data) {
+          setVitals(data.analysis_data);
+        }
+      });
+    });
   }, []);
 
   // Listen for SSE events to handle the granular analysis flow
@@ -129,9 +138,8 @@ function DashboardOverview() {
     }
   };
 
+
   // Transform backend events to UI model
-  // Backend: analysis_data array with event objects
-  // We need: { id, date, title, type, summary, docType }
   const events =
     timelineData?.analysis_data?.slice(0, 3).map((e: any, idx: number) => ({
       id: idx,
@@ -147,6 +155,37 @@ function DashboardOverview() {
       summary: e.description || e.details || "No details available",
       docType: e.category || "Record",
     })) || [];
+
+  // Calculated values for the dashboard
+  const vitalsCount = vitals.length;
+  // const trendsCount = timelineData?.analysis_data?.length || 0; // Unused in new layout
+  const summaryText = timelineData?.timeline_summary || timelineData?.analysis_summary || "No health summary available yet. Upload records to generate insights.";
+
+  // Calculate trend distribution
+  const trendStats = vitals.reduce(
+    (acc, vital) => {
+      const data = vital.data || [];
+      if (data.length < 2) {
+        acc.Stable++; // Default to stable if not enough data
+        return acc;
+      }
+      const first = data[0].value;
+      const last = data[data.length - 1].value;
+      const change = ((last - first) / first) * 100;
+
+      if (Math.abs(change) < 2) acc.Stable++;
+      else if (change > 0) acc.Up++;
+      else acc.Down++;
+      return acc;
+    },
+    { Stable: 0, Up: 0, Down: 0 }
+  );
+
+  const pieData = [
+    { name: "Stable", value: trendStats.Stable, color: "#94a3b8" }, // slate-400
+    { name: "Up Trend", value: trendStats.Up, color: "#10b981" },   // emerald-500
+    { name: "Down Trend", value: trendStats.Down, color: "#ef4444" }, // red-500
+  ].filter(d => d.value > 0);
 
   if (loading) {
     return (
@@ -231,9 +270,8 @@ function DashboardOverview() {
     );
   }
 
-  // --- POPULATED DASHBOARD ---
   return (
-    <div className="flex-1 p-6 md:p-8 max-w-6xl mx-auto w-full">
+    <div className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full space-y-8">
       {/* Hidden Input for Simulation (Multi-file enabled) */}
       <input
         type="file"
@@ -255,176 +293,171 @@ function DashboardOverview() {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-8">
-        {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex flex-col md:flex-row md:items-end justify-between gap-4"
-        >
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
-              Health Narrative
-            </h1>
-            <p className="text-slate-500 mt-1">
-              AI-generated summary based on your records.
-            </p>
-          </div>
-          <button
-            onClick={handleUploadClick}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm active:transform active:scale-95"
-          >
-            <Upload size={18} />
-            <span>Upload More</span>
-          </button>
-        </motion.div>
-
-        {/* AI Insight Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm relative overflow-hidden group"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Sparkles size={120} />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-1.5 bg-blue-50 text-blue-600 rounded-md">
-                <Sparkles size={16} />
-              </div>
-              <h2 className="font-semibold text-slate-800">
-                Latest Health Insight
-              </h2>
-            </div>
-            <p className="text-slate-600 leading-relaxed max-w-3xl whitespace-pre-line">
-              {timelineData.timeline_summary ||
-                timelineData.analysis_summary ||
-                "Your records have been processed. Review the timeline below for detailed events."}
-            </p>
-            {/*
-                If we had specific trends extracted in the summary object (e.g. tags), we could map them here.
-                For now we keep static badges or remove them if dynamic data isn't structured for tags yet.
-            */}
-          </div>
-        </motion.div>
-
-        {/* Timeline & Trends Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Timeline Feed */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">
-                Recent Timeline
+      {/* Top Row: Hero Card & AI Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <HealthFocusCard summary={summaryText} />
+        </div>
+        <div className="lg:col-span-1">
+          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 h-full flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-zinc-100 font-semibold flex items-center gap-2">
+                <Activity size={16} className="text-emerald-400" />
+                Vitals Status
               </h3>
-              <Link
-                to="/dashboard/timeline"
-                search={{ eventTitle: undefined }}
-                className="text-sm text-blue-600 font-medium hover:underline"
-              >
-                View all
-              </Link>
             </div>
 
-            <div className="space-y-4">
-              {events.length > 0 ? (
-                events.map((event: any, index: number) => (
-                  <Link
-                    to="/dashboard/timeline"
-                    search={{ eventTitle: event.title }}
-                    key={index}
-                    className="block"
-                  >
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.2 + index * 0.1 }}
-                      className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group hover:border-blue-200"
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="w-full h-[180px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                      cornerRadius={4}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                            {getIconForType(event.type)}
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-slate-900 text-sm md:text-base group-hover:text-blue-700 transition-colors">
-                              {event.title}
-                            </h4>
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <span>{event.date}</span>
-                              <span>•</span>
-                              <span className="font-medium text-slate-600">
-                                {event.docType}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <ChevronRight
-                          size={18}
-                          className="text-slate-300 group-hover:text-blue-500 transition-colors"
-                        />
-                      </div>
-                      <p className="text-slate-600 text-sm ml-13 pl-0.5 leading-relaxed line-clamp-2">
-                        {event.summary}
-                      </p>
-                    </motion.div>
-                  </Link>
-                ))
-              ) : (
-                <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-500">
-                  No recent events found.
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px' }}
+                      itemStyle={{ color: '#e4e4e7' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center Stats */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-3xl font-bold text-white">{vitalsCount}</span>
+                  <span className="text-xs text-zinc-500 uppercase tracking-wider">Total Vitals</span>
                 </div>
-              )}
+              </div>
+
+              {/* Legend / Stats Grid */}
+              <div className="w-full grid grid-cols-2 gap-3 mt-6">
+                {pieData.map((item) => (
+                  <div key={item.name} className="flex flex-col items-center p-2 bg-zinc-800/30 rounded-lg border border-zinc-800/50">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-[10px] text-zinc-400 uppercase">{item.name}</span>
+                    </div>
+                    <span className="text-zinc-200 font-semibold">{item.value}</span>
+                  </div>
+                ))}
+                <div className="flex flex-col items-center p-2 bg-zinc-800/30 rounded-lg border border-zinc-800/50">
+                  <span className="text-[10px] text-zinc-400 uppercase mb-1">Trends</span>
+                  <span className="text-zinc-200 font-semibold">{timelineData?.analysis_data?.length || 0}</span>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Trends Section */}
-          <div className="space-y-6">
-            {/* Health Trends Card */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <TrendingUp size={18} className="text-blue-600" />
-                  <h4 className="font-medium text-slate-900 text-sm">
-                    Health Trends
-                  </h4>
-                </div>
-                <Link
-                  to="/dashboard/trends"
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  View All
-                </Link>
-              </div>
-              <div className="space-y-4">
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  View patterns and insights from your medical history,
-                  including vital signs and health metrics over time.
-                </p>
-                <Link to="/dashboard/trends">
-                  <button className="w-full py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors">
-                    View Trends
-                  </button>
-                </Link>
-              </div>
+      {/* Middle Row: Vital Cards */}
+      <div>
+        <div className="flex items-end justify-between mb-4">
+          <h2 className="text-xl font-semibold text-slate-800">Key Biomarkers</h2>
+          <Link to="/dashboard/charts" className="text-sm text-blue-600 font-medium hover:underline">View All Charts</Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {vitals.length === 0 ? (
+            <div className="col-span-full text-center py-10 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+              No vital signs recorded yet. Upload records to analyze.
             </div>
+          ) : (
+            vitals.slice(0, 4).map((v, i) => (
+              <VitalCard key={i} testName={v.test_name} data={v.data} index={i} />
+            ))
+          )}
+        </div>
+      </div>
 
-            {/* Quick Upload */}
-            <div
-              onClick={handleUploadClick}
-              className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-100 hover:border-blue-400 transition-all group active:scale-[0.98]"
-            >
-              <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <Plus size={24} className="text-blue-600" />
+      {/* Bottom Row: Timeline & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-slate-900">Recent Timeline</h3>
+            <Link to="/dashboard/timeline" search={{ eventTitle: undefined }} className="text-sm text-blue-600 font-medium hover:underline">View Full History</Link>
+          </div>
+
+          {/* Timeline Feed directly here */}
+          <div className="space-y-4">
+            {events.length > 0 ? (
+              events.map((event: any, index: number) => (
+                <Link
+                  to="/dashboard/timeline"
+                  search={{ eventTitle: event.title }}
+                  key={index}
+                  className="block"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className="bg-slate-50 p-4 rounded-xl border border-slate-100 hover:border-blue-200 hover:shadow-sm transition-all flex gap-4 group"
+                  >
+                    <div className="mt-1">
+                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-blue-600 transition-colors">
+                        {/* Quick icon mapping based on type */}
+                        {event.type === 'Lab' ? <Activity size={18} /> :
+                          event.type === 'Visit' ? <UserIcon size={18} /> :
+                            <FileText size={18} />}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">{event.title}</h4>
+                        <span className="text-xs text-slate-500 whitespace-nowrap ml-2">{event.date}</span>
+                      </div>
+                      <p className="text-sm text-slate-600 line-clamp-2 mt-1">{event.summary}</p>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))
+            ) : (
+              <div className="p-8 text-center text-slate-500">
+                No recent events found.
               </div>
-              <h4 className="font-medium text-slate-900 text-sm group-hover:text-blue-700">
-                Add New Record
-              </h4>
-              <p className="text-xs text-slate-500 mt-1">
-                Drag & drop PDF or Image
-              </p>
+            )}
+          </div>
+
+          {/* 
+             {/* Commented out Suggested Next Steps as requested
+             <div className="space-y-6">
+                 <ActionItem ... />
+             </div>
+             */}
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <button onClick={handleUploadClick} className="w-full py-3 px-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all flex items-center gap-3 text-left group">
+                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                  <Upload size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Upload Records</p>
+                  <p className="text-xs text-slate-500">PDF, JPG, DICOM supported</p>
+                </div>
+              </button>
+              <Link to="/dashboard/chat" className="w-full py-3 px-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all flex items-center gap-3 text-left group">
+                <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Ask MedLM</p>
+                  <p className="text-xs text-slate-500">Chat with your health data</p>
+                </div>
+              </Link>
             </div>
           </div>
         </div>
@@ -433,17 +466,9 @@ function DashboardOverview() {
   );
 }
 
-
-
-function getIconForType(type: string) {
-  switch (type) {
-    case "Visit":
-      return <UserIcon size={18} />;
-    case "Lab":
-      return <Activity size={18} />;
-    case "Specialist":
-      return <FileText size={18} />;
-    default:
-      return <File size={18} />;
-  }
-}
+/* 
+// Moved logic inline to DashboardOverview
+function VitalCardsSection() { ... } 
+// Commented out ActionItem
+function ActionItem(...) { ... }
+*/

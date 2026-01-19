@@ -8,6 +8,7 @@ from app.services.gemini_service import gemini_service
 from app.services.llm_service import llm_service
 import logging
 from pydantic import BaseModel
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ async def chat_with_context(
             full_response = ""
             chunk_count = 0
 
-            for chunk in llm_service.chat_medlm(
+            async for chunk in llm_service.chat_medlm_async(
                 user_id=str(current_user.id),
                 message=request.message,
                 user_context=request.context,
@@ -80,7 +81,7 @@ async def chat_medlm_stream(
             full_response = ""
             chunk_count = 0
 
-            for chunk in llm_service.chat_medlm(
+            async for chunk in llm_service.chat_medlm_async(
                 user_id=str(current_user.id),
                 message=request.message,
                 user_context=request.context,

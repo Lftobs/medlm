@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { motion } from 'framer-motion'
-import { FileText, File, Image as ImageIcon, Filter, Search } from 'lucide-react'
-import { getRecords } from '../../lib/api'
+import { FileText, File, Image as ImageIcon, Filter, Search, Trash2, CheckSquare, Square } from 'lucide-react'
+import { getRecords, deleteRecords } from '../../lib/api'
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import { AlertDialog } from '../../components/ui/AlertDialog'
 export const Route = createFileRoute('/dashboard/records')({
   component: RecordsPage,
 })
@@ -11,6 +13,9 @@ function RecordsPage() {
   const [filter, setFilter] = useState('All')
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
     getRecords()
@@ -20,8 +25,8 @@ function RecordsPage() {
             id: r.id,
             title: r.file_name,
             date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            type: mapFileTypeToCategory(r.file_type), // Map backend type to UI category
-            size: 'Unknown', // Backend doesn't return size yet
+            type: mapFileTypeToCategory(r.file_type),
+            size: 'Unknown',
             fileType: r.file_type
           }))
         )
@@ -31,6 +36,46 @@ function RecordsPage() {
   }, [])
 
   const filteredRecords = filter === 'All' ? records : records.filter(r => r.type === filter)
+
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredRecords.length && filteredRecords.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredRecords.map(r => r.id)))
+    }
+  }
+
+  const handleDeleteClick = () => {
+    if (selectedIds.size === 0) return
+    setShowDeleteDialog(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteRecords(Array.from(selectedIds))
+      toast.success('Records deleted successfully')
+      // Remove from state
+      setRecords(records.filter(r => !selectedIds.has(r.id)))
+      setSelectedIds(new Set())
+      setShowDeleteDialog(false)
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to delete records')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   return (
     <div className="flex-1 p-6 md:p-8 max-w-6xl mx-auto w-full">
@@ -42,7 +87,24 @@ function RecordsPage() {
             <h1 className="text-2xl font-semibold text-slate-900">Records Library</h1>
             <p className="text-slate-500 mt-1">Manage and organize your medical files.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm font-medium text-red-600 hover:bg-red-100 transition-colors mr-2"
+              >
+                <Trash2 size={16} />
+                <span>Delete ({selectedIds.size})</span>
+              </button>
+            )}
+            <button
+              onClick={toggleSelectAll}
+              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              {selectedIds.size > 0 && selectedIds.size === filteredRecords.length ? <CheckSquare size={16} className="text-blue-600" /> : <Square size={16} />}
+              <span>Select All</span>
+            </button>
             <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">
               <Filter size={16} />
               <span>Filter</span>
@@ -81,11 +143,13 @@ function RecordsPage() {
                 <div className={`p-3 rounded-lg ${getBgColorForType(record.type)}`}>
                   {getIconForType(record.type)}
                 </div>
-                <button className="text-slate-400 hover:text-slate-600">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                  </svg>
-                </button>
+                <div onClick={(e) => { e.stopPropagation(); toggleSelection(record.id); }}>
+                  {selectedIds.has(record.id) ? (
+                    <CheckSquare className="text-blue-600 cursor-pointer" size={20} />
+                  ) : (
+                    <Square className="text-slate-300 hover:text-slate-400 cursor-pointer" size={20} />
+                  )}
+                </div>
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">{record.title}</h3>
@@ -98,6 +162,17 @@ function RecordsPage() {
           ))}
         </div>
       </div>
+
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Records"
+        description={`Are you sure you want to delete ${selectedIds.size} selected record${selectedIds.size === 1 ? '' : 's'}? This action cannot be undone.`}
+        actionLabel="Delete"
+        variant="destructive"
+        onAction={handleConfirmDelete}
+        loading={isDeleting}
+      />
     </div>
   )
 }
@@ -112,7 +187,7 @@ function getIconForType(type: string) {
 }
 function mapFileTypeToCategory(fileType: string) {
   if (fileType === 'dicom' || fileType === 'image') return 'Imaging'
-  if (fileType === 'pdf') return 'Lab' // Assuming most PDFs are labs/reports
+  if (fileType === 'pdf') return 'Lab'
   return 'Report'
 }
 

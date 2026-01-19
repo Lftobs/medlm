@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { Activity } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Header() {
@@ -16,9 +15,7 @@ export default function Header() {
           to="/"
           className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-slate-800/50 transition-colors"
         >
-          <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center">
-            <Activity className="text-white" size={14} />
-          </div>
+          <img src="/medlm-icon.svg" className="w-7 h-7 rounded-lg shadow-sm" alt="MedLM" />
           <span className="font-bold tracking-tight text-white text-sm">
             MedLM
           </span>

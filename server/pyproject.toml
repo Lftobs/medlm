@@ -10,6 +10,7 @@ dependencies = [
     "celery>=5.6.0",
     "dspy>=3.0.4",
     "fastapi>=0.127.1",
+    "gevent>=25.9.1",
     "google-genai>=1.56.0",
     "mem0ai>=1.0.1",
     "numpy>=2.4.0",

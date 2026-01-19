@@ -35,7 +35,7 @@ const accordionFeatures = [
     id: "dashboard",
     title: "Health Narrative",
     description:
-      "Get an AI-generated summary of your complete medical history. MedLM reads thousands of pages and distills it into actionable insights you can share with your doctor.",
+      "Get a comprehensive summary of your medical history. MedLM organizes your records into a clear narrative to facilitate discussion with your clinician.",
     image: "/mockups/dashboard.png",
   },
   {
@@ -49,7 +49,7 @@ const accordionFeatures = [
     id: "chat",
     title: "Health IQ Chat",
     description:
-      "Ask questions in plain English like 'When was my last Tetanus shot?' or 'Show me all abnormal blood results.' Get instant, accurate answers with citations.",
+      "Ask questions like 'When was my last Tetanus shot?' or 'Show me recent blood results.' Get answers based strictly on your uploaded records, with citations.",
     image: "/mockups/chat.png",
   },
 ];
@@ -96,8 +96,8 @@ function HeroAccordionSection() {
               transition={{ duration: 0.8 }}
               className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-[1.05] tracking-tight"
             >
-              The platform that <br />
-              <span className="text-blue-400">understands you.</span>
+              Understand your health <br />
+              <span className="text-blue-400">in plain language.</span>
             </motion.h1>
 
             <motion.p
@@ -106,8 +106,8 @@ function HeroAccordionSection() {
               transition={{ duration: 0.8, delay: 0.1 }}
               className="text-lg text-slate-400 mb-10 max-w-lg leading-relaxed"
             >
-              MedLM transforms your scattered medical records into an
-              intelligent, interactive health narrative. Built with Gemini 3.0.
+              MedLM transforms your scattered medical records into a
+              clear, organized summary. Built with Gemini 3.0.
             </motion.p>
 
             <motion.div
@@ -311,8 +311,8 @@ function BentoGridFeatures() {
                 10-Year Context
               </h3>
               <p className="text-lg text-slate-500 leading-relaxed max-w-md">
-                Gemini 3 analyzes your entire history at once. It finds
-                connections a human doctor might miss across thousands of pages.
+                Gemini 3 analyzes your entire history. It aggregates data spanning
+                thousands of pages to build a complete chronology.
               </p>
             </div>
 
@@ -401,7 +401,7 @@ function BentoGridFeatures() {
             />
           </motion.div>
 
-          {/* 99% Accuracy */}
+          {/* 99% Accuracy -> Verifiable */}
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
@@ -429,13 +429,13 @@ function BentoGridFeatures() {
                 whileInView={{ scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ type: "spring", bounce: 0.5, delay: 0.3 }}
-                className="text-7xl font-bold mb-2"
+                className="text-2xl font-bold mb-2 break-all"
               >
-                99%
+                Citations
               </motion.div>
-              <div className="text-blue-100 font-medium text-lg">Accuracy</div>
+              <div className="text-blue-100 font-medium text-lg">Included</div>
               <div className="text-blue-200/70 text-sm mt-1">
-                OCR & NLP combined
+                Every fact linked to source
               </div>
             </div>
           </motion.div>
