@@ -8,6 +8,10 @@ from app.services.extraction_service import TextExtractionService
 
 logger = logging.getLogger(__name__)
 class ReadMedicalRecord:
+    """
+    Tool to read the full content of a specific medical record file to answer detailed questions.
+    Use this tool when you need to know exactly what a specific document says.
+    """
     user_id: str
 
     def __init__(self, user_id: str):
@@ -23,7 +27,6 @@ class ReadMedicalRecord:
         logger.info(f"Tool ReadMedicalRecord called for: {file_name_or_id}")
         
         with Session(engine) as db:
-            # Try to find by ID first
             record = db.exec(
                 select(MedicalRecord).where(
                     MedicalRecord.id == file_name_or_id,
@@ -31,7 +34,6 @@ class ReadMedicalRecord:
                 )
             ).first()
 
-            # If not found, try by filename (fuzzy match or exact)
             if not record:
                 record = db.exec(
                     select(MedicalRecord).where(
@@ -44,15 +46,13 @@ class ReadMedicalRecord:
                 return f"Error: Could not find a medical record matching '{file_name_or_id}' for this user."
 
             try:
-                # Extract text
                 file_path = storage_service.get_file_path(record.s3_key)
-                text = TextExtractionService.extract_text(file_path)
+                text = TextExtractionService.extract_text(file_path) # TODO: Change to use Attachment 
                 
                 if not text:
                     return "The document was found but contains no extractable text."
                 
-                # Truncate if too long (sanity check, Gemini has large context though)
-                return f"--- Content of {record.file_name} ---\n{text[:100000]}" # Limit to ~100k chars to be safe-ish
+                return f"--- Content of {record.file_name} ---\n{text}"
             except Exception as e:
                 logger.error(f"Error reading record in tool: {e}")
                 return f"Error reading document content: {str(e)}"

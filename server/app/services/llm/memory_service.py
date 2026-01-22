@@ -13,7 +13,6 @@ class MemoryService:
 
     @classmethod
     def _initialize_memory(cls):
-        """Initialize memory client and embedding model (lazy initialization)."""
         if cls._mem is None:
             if settings.MEM_API_KEY:
                 try:
@@ -37,7 +36,9 @@ class MemoryService:
     def _get_document_summaries(self, user_id: str):
         self._ensure_initialized()
         if not self._mem:
-            logger.warning("Attempted to get document summaries but mem0 is not initialized")
+            logger.warning(
+                "Attempted to get document summaries but mem0 is not initialized"
+            )
             return []
 
         try:
@@ -96,7 +97,6 @@ class MemoryService:
                 collection_name="clinical_records",
                 query_text=query,
                 query_vector=query_embedding,
-                # limit=limit,
             )
 
             for result in qdrant_results:
@@ -153,7 +153,7 @@ class MemoryService:
             )
         except Exception as e:
             logger.error(f"Document summary retrieval failed: {e}")
-        
+
         return combined_results
 
     def _search_memories(self, user_id: str, query: str, limit: int = 5):
@@ -161,25 +161,30 @@ class MemoryService:
             logger.warning("Attempted to search memories but mem0 is not initialized")
             return []
         try:
-            # First try semantic search with proper filters
             try:
                 search_result = self._mem.search(
-                    query=query,
-                    filters={"user_id": user_id},
-                    limit=limit
+                    query=query, filters={"user_id": user_id}, limit=limit
                 )
                 if isinstance(search_result, dict) and "results" in search_result:
-                    logger.info(f"Found {len(search_result['results'])} memories via semantic search")
+                    logger.info(
+                        f"Found {len(search_result['results'])} memories via semantic search"
+                    )
                     return search_result["results"]
                 elif isinstance(search_result, list):
-                    logger.info(f"Found {len(search_result)} memories via semantic search")
+                    logger.info(
+                        f"Found {len(search_result)} memories via semantic search"
+                    )
                     return search_result
             except Exception as search_error:
-                logger.warning(f"Semantic search failed, falling back to get_all: {search_error}")
-            
+                logger.warning(
+                    f"Semantic search failed, falling back to get_all: {search_error}"
+                )
+
             result = self._mem.get_all(filters={"user_id": user_id}, limit=limit)
             if isinstance(result, dict) and "results" in result:
-                logger.info(f"Found {len(result['results'])} memories via get_all fallback")
+                logger.info(
+                    f"Found {len(result['results'])} memories via get_all fallback"
+                )
                 return result["results"]
             return result
         except Exception as e:
@@ -187,55 +192,62 @@ class MemoryService:
             return []
 
     def add_memory(self, msg: str, user_id: str, metadata: dict | None = None):
-        """Add a new memory to mem0 with enhanced conversation preservation."""
         self._ensure_initialized()
         if not self._mem:
-            logger.warning("Attempted to add memory but mem0 is not initialized (check MEM_API_KEY)")
+            logger.warning(
+                "Attempted to add memory but mem0 is not initialized (check MEM_API_KEY)"
+            )
             return
-        
-        try:
-            logger.info(f"Adding memory to mem0 for user {user_id}. msg len: {len(msg)}")
-            
-            # For conversations, check if msg is a list of openai-format messages
-            if isinstance(msg, list):
-                if metadata is not None:
-                     self._mem.add(msg, user_id=user_id, metadata=metadata)
-                else:
-                     self._mem.add(msg, user_id=user_id)
-                logger.info("Added conversation memory to mem0")
-                return
 
-            # For conversations (legacy string check), extract and save both user info and assistant advice
-            if isinstance(msg, str) and msg.startswith("User: ") and "\nAssistant: " in msg:
-                parts = msg.split("\nAssistant: ", 1)
-                user_part = parts[0].replace("User: ", "")
-                assistant_part = parts[1] if len(parts) > 1 else ""
-                
-                # Save user information in a format mem0 preserves well
-                user_metadata = (metadata or {}).copy()
-                user_metadata["type"] = "user_information"
-                self._mem.add(f"User reported: {user_part}", user_id=user_id, metadata=user_metadata)
-                
-                # Save assistant advice in a format that preserves context
-                if assistant_part:
-                    advice_metadata = (metadata or {}).copy()
-                    advice_metadata["type"] = "medical_advice"
-                    advice_summary = f"Medical advice given: When user reported {user_part[:100]}, assistant advised: {assistant_part[:150]}"
-                    self._mem.add(advice_summary, user_id=user_id, metadata=advice_metadata)
-                
-                logger.info("Added structured user info and medical advice to mem0")
-            else:
-                # Regular memory addition for non-conversations
+        try:
+            logger.info(
+                f"Adding memory to mem0 for user {user_id}. msg len: {len(msg)}"
+            )
+
+            if isinstance(msg, list):
                 if metadata is not None:
                     self._mem.add(msg, user_id=user_id, metadata=metadata)
                 else:
                     self._mem.add(msg, user_id=user_id)
-            
+                logger.info("Added conversation memory to mem0")
+                return
+
+            if (
+                isinstance(msg, str)
+                and msg.startswith("User: ")
+                and "\nAssistant: " in msg
+            ):
+                parts = msg.split("\nAssistant: ", 1)
+                user_part = parts[0].replace("User: ", "")
+                assistant_part = parts[1] if len(parts) > 1 else ""
+
+                user_metadata = (metadata or {}).copy()
+                user_metadata["type"] = "user_information"
+                self._mem.add(
+                    f"User reported: {user_part}",
+                    user_id=user_id,
+                    metadata=user_metadata,
+                )
+
+                if assistant_part:
+                    advice_metadata = (metadata or {}).copy()
+                    advice_metadata["type"] = "medical_advice"
+                    advice_summary = f"Medical advice given: When user reported {user_part[:100]}, assistant advised: {assistant_part[:150]}"
+                    self._mem.add(
+                        advice_summary, user_id=user_id, metadata=advice_metadata
+                    )
+
+                logger.info("Added structured user info and medical advice to mem0")
+            else:
+                if metadata is not None:
+                    self._mem.add(msg, user_id=user_id, metadata=metadata)
+                else:
+                    self._mem.add(msg, user_id=user_id)
+
             logger.info("Memory added to mem0 client")
-            
+
         except Exception as e:
             logger.error(f"Memory add failed in service: {e}", exc_info=True)
-            # Don't re-raise to avoid breaking chat flow
             pass
 
     def update_memory(self, memory_id: str, text: str):

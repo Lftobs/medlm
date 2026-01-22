@@ -61,7 +61,6 @@ class VectorService:
                 )
                 logger.info(f"Collection '{collection_name}' created.")
 
-                # Create text index for hybrid search
                 try:
                     self.client.create_payload_index(
                         collection_name=collection_name,
@@ -140,7 +139,6 @@ class VectorService:
         """
         self._ensure_initialized()
         try:
-            # Perform vector search
             vector_results = self.client.query_points(
                 collection_name=collection_name,
                 query=query_vector,
@@ -149,14 +147,10 @@ class VectorService:
                 with_payload=True,
             )
 
-            # Perform text-based scroll to find matching documents
-            # Using scroll with text filter for keyword matching
             text_results = []
             try:
-                # Split query text into keywords
                 keywords = query_text.lower().split()
                 if keywords:
-                    # Scroll through collection and filter by text content
                     scroll_result = self.client.scroll(
                         collection_name=collection_name,
                         limit=limit * 2,
@@ -164,7 +158,6 @@ class VectorService:
                         with_vectors=False,
                     )
 
-                    # Filter results that contain any of the keywords
                     for point in scroll_result[0]:
                         text_content = point.payload.get("text", "").lower()
                         if any(keyword in text_content for keyword in keywords):
@@ -176,7 +169,6 @@ class VectorService:
                     f"Text search failed: {text_error}, using vector-only results"
                 )
 
-            # Merge results using RRF (Reciprocal Rank Fusion)
             merged = self._rrf_merge(
                 vector_results.points,
                 text_results,
@@ -188,7 +180,6 @@ class VectorService:
 
         except Exception as e:
             logger.error(f"Error in hybrid search for '{collection_name}': {e}")
-            # Fallback to basic vector search
             logger.info("Falling back to basic vector search")
             return self.search(collection_name, query_vector, limit, score_threshold)
 
@@ -200,13 +191,11 @@ class VectorService:
         """
         scores = {}
 
-        # Add vector search scores
         for rank, point in enumerate(vector_results, start=1):
             point_id = point.id
             rrf_score = 1.0 / (k + rank)
             scores[point_id] = {"point": point, "score": rrf_score}
 
-        # Add text search scores
         for rank, point in enumerate(text_results, start=1):
             point_id = point.id
             rrf_score = 1.0 / (k + rank)
@@ -215,10 +204,8 @@ class VectorService:
             else:
                 scores[point_id] = {"point": point, "score": rrf_score}
 
-        # Sort by combined RRF score
         sorted_results = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
 
-        # Return top results wrapped in ScoredResult for consistent interface
         results = []
         for item in sorted_results[:limit]:
             scored_result = ScoredResult(item["point"], item["score"])
@@ -248,28 +235,22 @@ def semantic_chunk_text(text, model, threshold=0.5, max_chunk_size=1000):
         threshold (float): Similarity threshold to determine boundaries. Lower = fewer splits.
         max_chunk_size (int): Max tokens/chars (approx) per chunk as hard limit.
     """
-    # 1. Split into sentences
-    # Simple split by punctuation usually works for medical text, avoiding complex NLTK dep for now
     sentences = re.split(r"(?<=[.!?])\s+", text)
     if not sentences:
         return []
 
-    # 2. Encode sentences
-    # model.encode returns numpy array of embeddings
     embeddings = model.encode(sentences, show_progress_bar=False)
 
     chunks = []
     current_chunk = []
     current_chunk_len = 0
 
-    # 3. Iterate and group
     for i, sentence in enumerate(sentences):
         if not current_chunk:
             current_chunk.append(sentence)
             current_chunk_len += len(sentence)
             continue
 
-        # Hard limit check
         if current_chunk_len + len(sentence) > max_chunk_size:
             chunk_to_add = " ".join(current_chunk)
             if len(chunk_to_add) >= 5:
@@ -286,7 +267,6 @@ def semantic_chunk_text(text, model, threshold=0.5, max_chunk_size=1000):
         )
 
         if sim < threshold:
-            # Semantic shift detected, split
             chunk_to_add = " ".join(current_chunk)
             if len(chunk_to_add) >= 5:
                 chunks.append(chunk_to_add)

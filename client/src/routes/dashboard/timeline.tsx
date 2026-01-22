@@ -36,12 +36,8 @@ function TimelinePage() {
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
-  const [yearSortDesc, setYearSortDesc] = useState(true); // true = newest first, false = oldest first
-  const [isAnalyzing, setIsAnalyzing] = useState(false); // New state (AnalysisOverlay logic needed if I want the full UI, or just simple loading)
-  // For consistency with Trends, I should probably add the overlay, but user only asked for the button.
-  // I'll stick to simple loading or just toast for now since Timeline didn't have the overlay code. 
-  // Actually, I should probably use `isUploading` style overlay or add a message.
-  // Let's keep it simple: Button shows spinner.
+  const [yearSortDesc, setYearSortDesc] = useState(true); 
+  const [isAnalyzing, setIsAnalyzing] = useState(false); 
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -49,7 +45,6 @@ function TimelinePage() {
 
   useEffect(() => {
     if (eventTitle && timelineEvents.length > 0 && !selectedEvent) {
-      // Flatten the grouped events to find the match
       for (const group of timelineEvents) {
         const found = group.events.find((e: any) => e.title === eventTitle);
         if (found) {
@@ -63,8 +58,6 @@ function TimelinePage() {
   useEffect(() => {
     getTimeline()
       .then((data) => {
-        // API now returns { id, analysis_summary, timeline_summary, analysis_data: [...] }
-        // Or null if no timeline exists
         if (data && data.analysis_data && data.analysis_data.length > 0) {
           const grouped = groupEventsByYear(data.analysis_data, yearSortDesc);
           setTimelineEvents(grouped);
@@ -84,15 +77,12 @@ function TimelinePage() {
     setYearSortDesc(!yearSortDesc);
   };
 
-  // Listen for SSE timeline events
   useEventStream((event) => {
     if (typeof event !== "object") return;
     if (event.type === "timeline_started") setIsAnalyzing(true);
     if (event.type === "timeline_complete") {
       setIsAnalyzing(false);
       toast.success("Timeline analysis complete!");
-      // Refresh logic would go here - for now user can reload or I can re-fetch
-      // Let's re-fetch
       getTimeline().then((data) => {
         if (data && data.analysis_data) {
           setTimelineEvents(groupEventsByYear(data.analysis_data, yearSortDesc));
@@ -665,12 +655,9 @@ function getIcon(type: string) {
 }
 
 function groupEventsByYear(events: any[], sortDesc: boolean = true) {
-  // events: analysis_data array from API
-  // Format: [{ date: 'YYYY-MM-DD', event: '...', category: '...', description: '...' }]
   const grouped: Record<number, any[]> = {};
 
   events.forEach((event) => {
-    // Parse the date - it might be a string or already a date
     const dateStr =
       event.event_date ||
       event.date ||
@@ -682,7 +669,6 @@ function groupEventsByYear(events: any[], sortDesc: boolean = true) {
 
     if (!grouped[year]) grouped[year] = [];
 
-    // Format date to 'MMM DD'
     const formattedDate = dateObj.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -717,7 +703,6 @@ function groupEventsByYear(events: any[], sortDesc: boolean = true) {
     });
   });
 
-  // Convert to array and sort by year based on sortDesc parameter
   return Object.keys(grouped)
     .sort((a, b) => (sortDesc ? Number(b) - Number(a) : Number(a) - Number(b)))
     .map((year) => ({

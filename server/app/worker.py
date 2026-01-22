@@ -16,7 +16,6 @@ from app.services.storage import storage_service
 from app.services.stream_service import stream_service
 import logging
 from pathlib import Path
-# from app.core.utils import get_embedding_model, encode_texts
 
 
 logger = logging.getLogger(__name__)

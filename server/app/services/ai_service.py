@@ -20,7 +20,6 @@ class AIService:
 
         try:
             result = gemini_service.generate_content(context_cache_name, prompt)
-            # Parse result (newline separated)
             trends = [
                 line.strip()
                 for line in result.split("\n")
@@ -53,7 +52,6 @@ class AIService:
 
         try:
             result = gemini_service.generate_content(context_cache_name, prompt)
-            # Clean possible markdown
             cleaned_result = result.replace("```json", "").replace("```", "").strip()
             return json.loads(cleaned_result)
         except Exception as e:

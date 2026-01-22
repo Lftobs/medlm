@@ -206,7 +206,6 @@ export function AnalysisOverlay({
     );
 }
 
-// --- VISUAL COMPONENTS ---
 
 function UploadVisual() {
     return (
@@ -245,7 +244,6 @@ function UploadVisual() {
 }
 
 function ProcessingVisual({ logs, showLogs }: { logs: string[]; showLogs: boolean }) {
-    // Mock data for the "Scanner" effect
     const MOCK_DATA = [
         "Patient: John Doe",
         "DOB: 12/04/1985",

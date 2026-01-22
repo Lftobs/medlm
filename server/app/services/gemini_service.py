@@ -38,7 +38,6 @@ class GeminiService:
                 f"Uploading {path.name} ({path.stat().st_size} bytes) to Gemini..."
             )
             try:
-                # Detect MIME type from file extension
                 import mimetypes
 
                 mime_type, _ = mimetypes.guess_type(str(path))
@@ -71,17 +70,12 @@ class GeminiService:
 
         logger.info(f"All {len(uploaded_files)} files uploaded. Creating cache...")
 
-        # print(uploaded_files)
 
-        # TTL: 1 hour
         ttl_seconds = 3600
 
-        # System Instruction for the cache
         system_instruction = "You are MedLM, an expert medical AI assistant. Analyze the provided medical history with precision. Always cite specific documents when possible. Your goal is to find invisible trends and construct a chronological timeline."
 
         try:
-            # Construct proper Content objects referencing the uploaded files
-            # Each file needs to be a Part within a Content object
             cache_contents = []
             for f in uploaded_files:
                 cache_contents.append(
@@ -166,31 +160,20 @@ class GeminiService:
             return None
 
         try:
-            # client.caches.list() returns valid caches
             caches = self.client.caches.list()
             target_name = f"medlm_user_{user_id}"
 
             for cache in caches:
-                # Cache object has .config .name etc? Or direct attrs?
-                # google-genai v0.3: cache has .display_name
                 if getattr(cache, "display_name", "") == target_name:
-                    # Check expiry
-                    # API returns 'expire_time' usually as datetime (timezone aware)
                     expire_time = getattr(cache, "expire_time", None)
 
                     if expire_time:
-                        # Normalize to UTC
                         now = datetime.datetime.now(datetime.timezone.utc)
-                        # If expire_time is naive, assume UTC or fail safe?
-                        # Usually it is aware.
                         if expire_time > now:
                             return cache.name
                         else:
                             logger.info(f"Found expired cache {cache.name}, ignoring.")
                     else:
-                        # No expire time? usage might be unlimited or invalid.
-                        # Assume valid if no expire time provided? Or safer to skip.
-                        # Caches usually have a TTL.
                         pass
             return None
         except Exception as e:

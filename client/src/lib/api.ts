@@ -28,7 +28,6 @@ export async function uploadFiles(files: File[]): Promise<UploadResponse> {
       const errorData = await response.json();
       errorMessage = errorData.detail || errorMessage;
     } catch (e) {
-      // Ignore JSON parse error
     }
     throw new Error(errorMessage);
   }
@@ -102,7 +101,6 @@ export async function getVitals() {
   });
   if (!response.ok) throw new Error("Failed to fetch vitals");
   const data = await response.json();
-  // Return the latest vitals (first in list) or null
   if (data.vitals && data.vitals.length > 0) {
     return data.vitals[0];
   }
@@ -146,7 +144,6 @@ export async function streamChat(
       if (done) break;
 
       const chunk = decoder.decode(value);
-      // Parse SSE format (data: ...)
       const lines = chunk.split("\n");
       for (const line of lines) {
         if (line.startsWith("data: ")) {
@@ -192,16 +189,13 @@ export async function streamMedlm(
       if (done) break;
 
       const chunk = decoder.decode(value);
-      // Parse SSE format (data: ...)
       const lines = chunk.split("\n");
       for (const line of lines) {
         if (line.startsWith("data: ")) {
           const data = line.slice(6);
           try {
-            // Try to parse as JSON first (in case it's wrapped)
             onChunk(JSON.parse(data));
           } catch (e) {
-            // Otherwise use raw data
             onChunk(data);
           }
         }
@@ -228,7 +222,6 @@ export async function simplifyText(inputText: string) {
       const errorData = await response.json();
       errorMessage = errorData.error || errorMessage;
     } catch (e) {
-      // Ignore JSON parse error
     }
     throw new Error(errorMessage);
   }
@@ -258,7 +251,6 @@ export async function deleteRecords(recordIds: string[]) {
       const errorData = await response.json();
       errorMessage = errorData.detail || errorMessage;
     } catch (e) {
-      // Ignore
     }
     throw new Error(errorMessage);
   }

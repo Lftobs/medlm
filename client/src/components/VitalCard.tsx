@@ -24,7 +24,6 @@ interface VitalCardProps {
 export function VitalCard({ testName, data, index = 0 }: VitalCardProps) {
     const getAverage = (data: Array<{ value: number | string }>) => {
         if (data.length === 0) return 0;
-        // Parse values: remove non-numeric chars except dot and minus
         const validData = data.map(d => {
             const valStr = String(d.value);
             const cleanVal = valStr.replace(/[^\d.-]/g, '');
@@ -40,7 +39,6 @@ export function VitalCard({ testName, data, index = 0 }: VitalCardProps) {
     const getTrend = (data: Array<{ value: number | string }>) => {
         if (data.length < 2) return null;
 
-        // Use last two *valid* numbers with regex cleaning
         const validValues = data.map(d => {
             const valStr = String(d.value);
             const cleanVal = valStr.replace(/[^\d.-]/g, '');
@@ -51,10 +49,6 @@ export function VitalCard({ testName, data, index = 0 }: VitalCardProps) {
 
         const first = validValues[0];
         const last = validValues[validValues.length - 1];
-        // Compare overall trend? Or just last two? 
-        // Typically trend is last vs previous. Let's do last vs previous for "current trend"
-        // But user might want "since beginning". 
-        // Code originally compared data[0] and data[last], which is "Total trend over time". Let's stick to that but use safe numbers.
 
         const change = ((last - first) / first) * 100;
 
@@ -79,7 +73,6 @@ export function VitalCard({ testName, data, index = 0 }: VitalCardProps) {
     const chartColor = getChartColor(testName);
     const average = getAverage(data);
 
-    // Prepare data for chart to ensure numbers
     const chartData = data.map(d => ({ ...d, value: Number(d.value) })).filter(d => !isNaN(d.value));
 
 
