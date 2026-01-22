@@ -20,7 +20,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: true,
-      domain: ".medlm.intrep.xyz",
+      domain: "medlm.intrep.xyz",
     },
     cookies: {
       session_token: {
