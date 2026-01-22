@@ -6,16 +6,11 @@ interface WellnessGaugeProps {
 }
 
 export function WellnessGauge({ score }: WellnessGaugeProps) {
-    // Data for the gauge
-    // Value is the score, remaining is 100 - score
     const data = [
         { name: "Score", value: score },
         { name: "Remaining", value: 100 - score },
     ];
 
-    // Colors: Gradient-like effect for the score part?
-    // Using a solid color for now that matches the reference (yellow/green gradient conceptually)
-    // We'll use a function to determine color based on score health
     const getColor = (value: number) => {
         if (value >= 80) return "#22c55e"; // Green
         if (value >= 50) return "#eab308"; // Yellow

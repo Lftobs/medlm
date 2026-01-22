@@ -262,7 +262,6 @@ function AccordionItem({
   );
 }
 
-// --- ENHANCED BENTO GRID FEATURES ---
 function BentoGridFeatures() {
   return (
     <section className="py-32 bg-white text-slate-900 relative overflow-hidden">

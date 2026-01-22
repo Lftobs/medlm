@@ -65,7 +65,6 @@ function RecordsPage() {
     try {
       await deleteRecords(Array.from(selectedIds))
       toast.success('Records deleted successfully')
-      // Remove from state
       setRecords(records.filter(r => !selectedIds.has(r.id)))
       setSelectedIds(new Set())
       setShowDeleteDialog(false)

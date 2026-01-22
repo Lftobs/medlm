@@ -52,7 +52,6 @@ function DashboardOverview() {
   useEffect(() => {
     fetchTimeline();
 
-    // Fetch vitals
     import("../../lib/api").then(({ getVitals }) => {
       getVitals().then(data => {
         if (data && data.analysis_data) {
@@ -62,11 +61,9 @@ function DashboardOverview() {
     });
   }, []);
 
-  // Listen for SSE events to handle the granular analysis flow
   useEventStream((data) => {
     if (typeof data !== "object") return;
 
-    // Handle file processing events
     if (data.type === "file-operation") {
       if (data.status === "error") {
         console.error("File operation error:", data.message);
@@ -80,7 +77,6 @@ function DashboardOverview() {
       }
     }
 
-    // Handle timeline/trend analysis events
     if (data.type === "timeline" || data.type === "trend") {
       if (data.status === "error") {
         console.error("Analysis error:", data.message);
@@ -94,7 +90,6 @@ function DashboardOverview() {
         setLogs([]); // Clear logs
         fetchTimeline();
       } else if (data.status === "started" || data.status === "in_progress") {
-        // In progress
         setStatus("ANALYZING_TIMELINE");
         setProcessingMessage(data.message || "Analyzing health patterns...");
         setLogs((prev) => [...prev, `🩺 ${data.message}`]);
@@ -120,8 +115,6 @@ function DashboardOverview() {
           "✅ Upload complete",
           "🔄 Initializing analysis queue...",
         ]);
-        // Transition to processing state immediately after upload success
-        // The SSE events will refine this state shortly
         setStatus("PROCESSING_RECORDS");
       } catch (error) {
         console.error("Upload failed", error);
@@ -139,7 +132,6 @@ function DashboardOverview() {
   };
 
 
-  // Transform backend events to UI model
   const events =
     timelineData?.analysis_data?.slice(0, 3).map((e: any, idx: number) => ({
       id: idx,
@@ -156,12 +148,9 @@ function DashboardOverview() {
       docType: e.category || "Record",
     })) || [];
 
-  // Calculated values for the dashboard
   const vitalsCount = vitals.length;
-  // const trendsCount = timelineData?.analysis_data?.length || 0; // Unused in new layout
   const summaryText = timelineData?.timeline_summary || timelineData?.analysis_summary || "No health summary available yet. Upload records to generate insights.";
 
-  // Calculate trend distribution
   const trendStats = vitals.reduce(
     (acc, vital) => {
       const data = vital.data || [];
@@ -195,7 +184,6 @@ function DashboardOverview() {
     );
   }
 
-  // --- EMPTY STATE (New User) ---
   if (!timelineData) {
     return (
       <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto w-full flex flex-col items-center justify-center min-h-[80vh] text-center">
@@ -467,8 +455,6 @@ function DashboardOverview() {
 }
 
 /* 
-// Moved logic inline to DashboardOverview
 function VitalCardsSection() { ... } 
-// Commented out ActionItem
 function ActionItem(...) { ... }
 */

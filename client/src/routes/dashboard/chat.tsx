@@ -27,7 +27,6 @@ function AnalysisPage() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Listen for real-time analysis updates
   useEventStream((event) => {
     console.log("Stream event:", event);
     if (typeof event === "string" && event.includes("Analysis complete")) {
@@ -39,7 +38,6 @@ function AnalysisPage() {
         },
       ]);
       getTrends().then((res) => {
-        // Update chart data logic here if we had state for it
       });
     }
   });
@@ -86,7 +84,6 @@ function AnalysisPage() {
 
     let currentResponse = "";
 
-    // Optimistic AI message placeholder
     setMessages((prev) => [...prev, { role: "ai", content: "" }]);
 
     await streamChat(
@@ -111,7 +108,6 @@ function AnalysisPage() {
             return newMsgs;
           });
         } else if (chunk && typeof chunk === "object" && (chunk as any).text) {
-          // Handle specific object structure if needed
         }
       },
       (err) => {
@@ -126,7 +122,6 @@ function AnalysisPage() {
     setIsTyping(false);
   };
 
-  // Sample Chart Data
   const chartData = [
     { name: "Jan", value: 180 },
     { name: "Mar", value: 175 },

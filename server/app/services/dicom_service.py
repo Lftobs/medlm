@@ -22,7 +22,6 @@ class DicomService:
         try:
             ds = pydicom.dcmread(file_path)
             
-            # Extract basic metadata
             metadata = {
                 "patient_id": str(ds.get("PatientID", "unknown")),
                 "study_date": str(ds.get("StudyDate", "unknown")),
@@ -30,21 +29,15 @@ class DicomService:
                 "description": str(ds.get("StudyDescription", "unknown")),
             }
             
-            # Extract image
             pixel_array = ds.pixel_array
             
-            # Normalize to 0-255
             if pixel_array.ndim == 2:
-                # Grayscale
                 image_2d = pixel_array.astype(float)
                 image_2d = (np.maximum(image_2d, 0) / image_2d.max()) * 255.0
                 image_2d = np.uint8(image_2d)
                 img = Image.fromarray(image_2d)
             elif pixel_array.ndim == 3:
-                # RGB or multi-frame. Take first frame if multi-frame.
-                # Simplified: handling RGB
                 if pixel_array.shape[0] < 50: # Likely frames
-                     # Take middle frame or first
                     image_2d = pixel_array[0].astype(float)
                 else: 
                      image_2d = pixel_array.astype(float)
@@ -53,10 +46,8 @@ class DicomService:
                 image_2d = np.uint8(image_2d)
                 img = Image.fromarray(image_2d)
             else:
-                 # Fallback
                  return {"metadata": metadata, "error": "Unsupported dimensions"}
 
-            # Save JPEG
             image_name = f"{file_path.stem}.jpg"
             image_save_path = output_dir / image_name
             img.save(image_save_path)

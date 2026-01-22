@@ -52,22 +52,18 @@ function TrendsPage() {
     fetchTrends();
   }, []);
 
-  // Listen for SSE trend events
   useEventStream((event) => {
     if (typeof event !== "object") return;
 
-    // Handle trends_started event
     if (event.type === "trends_started" || event.status === "trends_started") {
       setIsAnalyzing(true);
       setAnalysisMessage("Gathering your health records...");
     }
 
-    // Handle progress updates (if backend sends them)
     if (event.type === "trend_update" || event.status === "trend_update") {
       setAnalysisMessage(event.message || "Analyzing patterns...");
     }
 
-    // Handle completion
     if (event.type === "trend_complete" || event.status === "trend_complete") {
       console.log("🎉 Trend analysis complete, refreshing data...");
       setIsAnalyzing(false);
@@ -75,7 +71,6 @@ function TrendsPage() {
       fetchTrends();
     }
 
-    // Handle failure
     if (event.type === "trend_failed" || event.status === "trend_failed") {
       setIsAnalyzing(false);
       toast.error(event.message || "Trend analysis failed.");
@@ -89,7 +84,6 @@ function TrendsPage() {
       const { startTrendAnalysis } = await import("../../lib/api");
       await startTrendAnalysis();
       setAnalysisMessage("Gemini is reading your records...");
-      // The SSE listener will handle further updates and completion
     } catch (e) {
       console.error(e);
       toast.error("Failed to start analysis");
@@ -216,7 +210,6 @@ function TrendsPage() {
     </AnimatePresence>
   );
 
-  // --- EMPTY STATE (New User or No Trends) ---
   if (!trendData) {
     return (
       <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto w-full flex flex-col items-center justify-center min-h-[80vh] text-center">
@@ -266,13 +259,11 @@ function TrendsPage() {
     );
   }
 
-  // Parse trends - handle both array and object formats
   let trends: any[] = [];
   if (trendData.analysis_data) {
     if (Array.isArray(trendData.analysis_data)) {
       trends = trendData.analysis_data;
     } else if (typeof trendData.analysis_data === "object") {
-      // Convert object to array (keys are indices)
       trends = Object.values(trendData.analysis_data);
     }
   }
@@ -361,7 +352,6 @@ function TrendsPage() {
               index={index}
               onViewDetails={() => setSelectedTrend(trend)}
               onSimplified={(simplifiedText) => {
-                // Update the trend in the local state
                 const updatedTrends = [...trends];
                 updatedTrends[index] = { ...trend, trend: simplifiedText };
                 setTrendData((prev: any) => ({
@@ -758,7 +748,6 @@ function getCategoryStyle(category: string) {
     };
   }
 
-  // Default
   return {
     icon: <Activity size={18} />,
     color: "text-purple-600",

@@ -1,17 +1,9 @@
 import asyncio
 import logging
 import threading
-from typing import Optional
 
-from sqlmodel import Session, select
-
-import dspy
 from app.core.config import settings
-from app.core.db import engine
 from app.core.utils import get_embedding_model
-from app.models import MedicalRecord
-from app.services.extraction_service import TextExtractionService
-from app.services.storage import storage_service
 from .llm.memory_service import memory_service
 
 logger = logging.getLogger(__name__)
@@ -102,14 +94,8 @@ class LLMService:
         """
         self._ensure_initialized()
         response_text = ""
-        
-        # We run the blocking DSPy code in a thread to avoid blocking the async event loop
-        # But for simplicity in this MVP/Agent step, we can run it directly or wrap it.
-        # Since dspy is sync, we'll run the heavy lifting here. 
-        # Ideally: await asyncio.to_thread(self._run_audit_agent, ...)
-        
+
         try:
-            # 1. Retrieve relevant memories/context
             memory_results = await asyncio.to_thread(
                 self.memory_service.search_combined_memory, user_id, message
             )
@@ -128,34 +114,25 @@ class LLMService:
                 f"{len(memory_results.get('qdrant', []))} Qdrant results"
             )
 
-            # 2. Instantiate Tool and Agent
-            # Import here to avoid circulars if any, though top-level is fine usually
             from .llm.tool_read_record import ReadMedicalRecord
             from .llm.signatures import ChatMedLm
             import dspy
 
             read_tool = ReadMedicalRecord(user_id=user_id)
-            
-            # ReAct agent
+
             react_agent = dspy.ReAct(ChatMedLm, tools=[read_tool])
 
             def run_agent():
                 with dspy.context(lm=self._lm):
-                    return react_agent(
-                        context=formatted_context, 
-                        user_input=message
-                    )
+                    return react_agent(context=formatted_context, user_input=message)
 
             try:
-                # Run sync agent in thread
                 prediction = await asyncio.to_thread(run_agent)
                 response_text = prediction.response
             except Exception as e:
                 logger.error(f"Chat ReAct agent failed: {e}", exc_info=True)
                 response_text = f"I apologize, but I encountered an error: {str(e)}"
 
-            # 3. Save memory
-            logger.info("Chat completed. Attempting to save chat memory...")
             try:
                 await asyncio.to_thread(
                     self.memory_service.add_memory,
@@ -167,15 +144,13 @@ class LLMService:
                     metadata={
                         "source": "chat_medlm",
                         "has_qdrant_context": len(memory_results.get("qdrant", [])) > 0,
-                        "used_tools": True
-                    }
+                        "used_tools": True,
+                    },
                 )
                 logger.info("Chat memory saved successfully")
             except Exception as e:
                 logger.error(f"Failed to save chat memory: {e}", exc_info=True)
 
-            # 4. Stream response (as a single chunk for now, or simulated chunks)
-            # ReAct doesn't stream token-by-token easily.
             yield response_text
 
         except Exception as e:

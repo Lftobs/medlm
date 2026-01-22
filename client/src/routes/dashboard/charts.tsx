@@ -47,7 +47,6 @@ function ChartsPage() {
     fetchData();
   }, []);
 
-  // Listen for SSE vitals events
   useEventStream((event) => {
     if (typeof event !== "object") return;
 
@@ -175,7 +174,6 @@ function ChartsPage() {
     );
   }
 
-  // --- EMPTY STATE ---
   if (!vitalsData || !vitalsData.analysis_data || vitalsData.analysis_data.length === 0) {
     return (
       <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto w-full flex flex-col items-center justify-center min-h-[80vh] text-center">

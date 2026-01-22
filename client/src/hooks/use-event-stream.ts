@@ -17,12 +17,10 @@ export function useEventStream(onMessage: (event: any) => void) {
           parsedData = JSON.parse(event.data);
           console.log("📦 Parsed SSE Data:", parsedData);
 
-          // Log standardized events
           if (parsedData.type && parsedData.status) {
             console.log(`📡 [SSE] ${parsedData.type} (${parsedData.status}): ${parsedData.message}`);
           }
         } catch (e) {
-          // keep as string
           console.log("📄 SSE Data (non-JSON):", parsedData);
         }
         onMessageRef.current(parsedData);
@@ -34,8 +32,6 @@ export function useEventStream(onMessage: (event: any) => void) {
     eventSource.onerror = (err) => {
       console.error("❌ EventSource failed:", err);
       console.log("Connection state:", eventSource.readyState);
-      // Retry logic is often handled by browser, but we can manage here if needed
-      // eventSource.close()
     };
 
     eventSource.onopen = () => {

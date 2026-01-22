@@ -176,7 +176,6 @@ async def delete_records(
 ):
     """Delete multiple medical records."""
 
-    # Verify records belong to user
     statement = select(MedicalRecord).where(
         MedicalRecord.id.in_(request.record_ids),
         MedicalRecord.user_id == current_user.id
@@ -189,15 +188,12 @@ async def delete_records(
     deleted_count = 0
     for record in records:
         try:
-             # Delete from S3/Storage
              if record.s3_key:
                 storage_service.delete_file(record.s3_key)
-             # Delete from DB
              db.delete(record)
              deleted_count += 1
         except Exception as e:
             logger.error(f"Failed to delete record {record.id}: {e}")
-            # Continue deleting others even if one fails
             continue
 
     db.commit()

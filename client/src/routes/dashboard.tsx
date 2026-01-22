@@ -33,7 +33,6 @@ function DashboardLayout() {
     );
   }
 
-  // Auth redirect commented out for dev as requested
   if (!session) {
     window.location.href = "/login";
     return null;
@@ -102,7 +101,6 @@ function NavItem({
   exact?: boolean;
 }) {
   const location = useLocation();
-  // Simple active check for demo/dev speed, ideally use Link logic or robust matching
   const isActive = exact
     ? location.pathname === to
     : location.pathname.startsWith(to);
