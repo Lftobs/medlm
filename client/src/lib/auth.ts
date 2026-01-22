@@ -10,7 +10,7 @@ console.log(process.env.VITE_SERVER_URL);
 export const auth = betterAuth({
   database: pool,
   secret: process.env.BETTER_AUTH_SECRET || "",
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+  baseURL: process.env.FE_URL || "http://localhost:3000",
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
@@ -18,6 +18,10 @@ export const auth = betterAuth({
     },
   },
   advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: ".medlm.intrep.xyz",
+    },
     cookies: {
       session_token: {
         attributes: {
