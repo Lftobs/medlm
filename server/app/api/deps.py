@@ -26,7 +26,7 @@ async def get_current_user(
         return user
 
     session_token = request.cookies.get("better-auth.session_token")
-    print(session_token)
+    print(session_token, "ses")
 
     if session_token:
         session_token = session_token.split(".")[0]

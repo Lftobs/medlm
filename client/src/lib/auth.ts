@@ -22,14 +22,6 @@ export const auth = betterAuth({
       enabled: true,
       domain: "medlm.intrep.xyz",
     },
-    cookies: {
-      session_token: {
-        attributes: {
-          sameSite: "none",
-          secure: true,
-        },
-      },
-    },
   },
   trustedOrigins: [
     process.env.FE_URL || "http://localhost:3000",

@@ -56,11 +56,11 @@ async def cors_exception_handler(request: Request, exc: Exception):
             if isinstance(settings.BACKEND_CORS_ORIGINS, list)
             else [settings.BACKEND_CORS_ORIGINS]
         )
-        print(settings.BACKEND_CORS_ORIGINS, "----->", allowed_origins)
+
         if "*" in allowed_origins or origin in allowed_origins:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
-
+    print(settings.BACKEND_CORS_ORIGINS, "----->", allowed_origins)
     return response
 
 
