@@ -9,23 +9,7 @@ from datetime import datetime, UTC
 async def get_current_user(
     request: Request, db: Session = Depends(get_session)
 ) -> User:
-    if settings.DEBUG:
-        user = db.exec(select(User)).first()
-        if not user:
-            user = User(
-                id="test-user-id",
-                email="test@example.com",
-                name="Test User",
-                emailVerified=True,
-                createdAt=datetime.now(UTC),
-                updatedAt=datetime.now(UTC),
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        return user
-
-    session_token = request.cookies.get("better-auth.session_token")
+    session_token = request.cookies.get("__Secure-better-auth.session_token")
     print(session_token, "ses")
 
     if session_token:
