@@ -2,6 +2,8 @@ from celery import Celery
 from celery.signals import worker_process_shutdown, worker_shutdown
 from app.core.config import settings
 import logging
+import gevent.monkey
+
 
 logger = logging.getLogger(__name__)
 

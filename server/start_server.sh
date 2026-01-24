@@ -26,9 +26,23 @@ echo "Starting Celery worker..."
 uv run celery -A app.core.celery_app worker --loglevel=info &
 CELERY_PID=$!
 
+
+start_health_pinger() {
+    echo "Starting health check pinger..."
+    while true; do
+        sleep 30
+        echo "Pinging health endpoint..."
+        curl -s http://localhost:8000/api/health > /dev/null || echo "Health check failed"
+    done
+}
+
+start_health_pinger &
+PINGER_PID=$!
+
 cleanup() {
-    echo "Stopping Celery worker..."
+    echo "Stopping background processes..."
     kill $CELERY_PID 2>/dev/null || true
+    kill $PINGER_PID 2>/dev/null || true
     wait $CELERY_PID 2>/dev/null || true
     echo "Cleanup completed."
 }
