@@ -23,7 +23,7 @@ echo "Running database migrations..."
 uv run alembic upgrade head
 
 echo "Starting Celery worker..."
-uv run celery -A app.core.celery_app worker --loglevel=info &
+uv run celery -A app.core.celery_app worker -l info -P gevent &
 CELERY_PID=$!
 
 
