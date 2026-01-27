@@ -8,3 +8,5 @@ services:
     volumes:
       - ./client/src:/app/src
     restart: always
+    env_file:
+      - ./client/.env
