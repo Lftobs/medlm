@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 if [ ! -d "$TARGET_DIR" ]; then
     echo "Error: Target directory $TARGET_DIR does not exist."
