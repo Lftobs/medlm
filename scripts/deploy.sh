@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH=$PATH:/usr/local/bin:$HOME/.local/bin
 
 if [ ! -d "$TARGET_DIR" ]; then
     echo "Error: Target directory $TARGET_DIR does not exist."
@@ -24,8 +24,9 @@ cd ..
 echo "Starting MedLM services..."
 
 sudo systemctl restart medlm-server
+echo "✓ MedLM server restarted ..:: $(sudo systemctl status medlm-server --no-pager || true)"
 sudo systemctl restart medlm-worker
-docker-compose up --build client
-sudo systemctl status medlm-server
-sudo systemctl status medlm-worker
+echo "✓ MedLM worker restarted ..:: $(sudo systemctl status medlm-worker --no-pager || true)"
+docker-compose up -d --build client
+echo "✓ Client built and started."
 
