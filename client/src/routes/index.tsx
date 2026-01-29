@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, lazy, Suspense, useEffect, memo } from "react";
 import { Sparkles, ArrowRight } from "lucide-react";
 import Header from "../components/Header";
-import LoadingSkeleton from "../components/LoadingSkeleton";
+import Skeleton from "../components/Skeleton";
 
 const BentoGridFeatures = lazy(() => import("../components/BentoGridFeatures"));
 const Testimonials = lazy(() => import("../components/Testimonials"));
@@ -14,6 +14,16 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
+  useEffect(() => {
+    const domains = ["fonts.googleapis.com", "fonts.gstatic.com"];
+    domains.forEach((domain) => {
+      const link = document.createElement("link");
+      link.rel = "dns-prefetch";
+      link.href = `//${domain}`;
+      document.head.appendChild(link);
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-900 text-white font-sans selection:bg-blue-600 selection:text-white overflow-x-hidden">
       <Header />
@@ -21,10 +31,7 @@ function LandingPage() {
       <Suspense
         fallback={
           <div className="py-32">
-            <LoadingSkeleton
-              className="max-w-4xl mx-auto space-y-8"
-              lines={12}
-            />
+            <Skeleton className="h-64 w-full max-w-4xl mx-auto" />
           </div>
         }
       >
@@ -71,6 +78,7 @@ const HeroAccordionSection = memo(() => {
     link.rel = "preload";
     link.as = "image";
     link.href = activeFeature?.image || "";
+    link.fetchPriority = "high";
     document.head.appendChild(link);
     return () => {
       document.head.removeChild(link);
