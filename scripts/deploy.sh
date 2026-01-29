@@ -43,7 +43,7 @@ echo "Building next color: $NEXT_COLOR"
 
 docker build --build-arg VITE_SERVER_URL=https://api.medlm.intrep.xyz -t medlm_client:$NEXT_COLOR ./client
 
-sudo systemctl set-environment medlm.service ACTIVE_COLOR=$NEXT_COLOR
+sudo systemctl set-environment ACTIVE_COLOR=$NEXT_COLOR
 sudo systemctl daemon-reload
 
 echo "Switching to $NEXT_COLOR..."
