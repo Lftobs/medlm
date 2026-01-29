@@ -29,7 +29,7 @@ sudo systemctl restart medlm-worker
 echo "✓ MedLM worker restarted"
 
 echo "Building frontend docker image"
-docker build -t medlm_client ./client
+docker build -t --build-args VITE_SERVER_URL=https://api.medlm.intrep.xyz medlm_client ./client
 
 echo "Starting MedLM client..."
 sudo systemctl restart medlm
