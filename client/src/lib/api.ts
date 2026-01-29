@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL;
+const API_BASE_URL = process.env.SERVER_URL || "https://api.medlm.intrep.xyz";
 
 export interface UploadResponse {
   message: string;
