@@ -32,6 +32,6 @@ echo "Building frontend docker image"
 docker build -t medlm_client ./client
 
 echo "Starting MedLM client..."
-sudo systemctl restart medlm-service
+sudo systemctl restart medlm
 
 echo "✓ Deployment completed."
