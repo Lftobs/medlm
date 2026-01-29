@@ -18,7 +18,8 @@ function LandingPage() {
     const domains = ["fonts.googleapis.com", "fonts.gstatic.com"];
     domains.forEach((domain) => {
       const link = document.createElement("link");
-      link.rel = "dns-prefetch";
+      link.rel = "preconnect";
+      link.crossOrigin = "anonymous";
       link.href = `//${domain}`;
       document.head.appendChild(link);
     });
