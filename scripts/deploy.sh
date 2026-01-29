@@ -24,9 +24,14 @@ cd ..
 echo "Starting MedLM services..."
 
 sudo systemctl restart medlm-server
-echo "✓ MedLM server restarted ..:: $(sudo systemctl status medlm-server --no-pager || true)"
+echo "✓ MedLM server restarted"
 sudo systemctl restart medlm-worker
-echo "✓ MedLM worker restarted ..:: $(sudo systemctl status medlm-worker --no-pager || true)"
-docker-compose up -d --build client
-echo "✓ Client built and started."
+echo "✓ MedLM worker restarted"
 
+echo "Building frontend docker image"
+docker build -t medlm_client ./client
+
+echo "Starting MedLM client..."
+sudo systemctl restart medlm-service
+
+echo "✓ Deployment completed."
