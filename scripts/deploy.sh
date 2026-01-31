@@ -33,8 +33,6 @@ docker system prune -f
 
 echo "Building frontend docker image with memory limits..."
 docker build \
-  --memory=4g \
-  --memory-swap=4g \
   --build-arg VITE_SERVER_URL=https://api.medlm.intrep.xyz \
   -t medlm_client \
   ./client
