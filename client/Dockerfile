@@ -2,9 +2,10 @@ FROM oven/bun:1 as base
 WORKDIR /app
 
 #COPY package.json bun.lock ./
+COPY . .
 RUN bun install --frozen-lockfile
 
-COPY . .
+#COPY . .
 
 ENV NODE_ENV=production
 RUN bun run build
