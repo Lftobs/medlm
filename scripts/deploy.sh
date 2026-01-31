@@ -28,8 +28,16 @@ echo "✓ MedLM server restarted"
 sudo systemctl restart medlm-worker
 echo "✓ MedLM worker restarted"
 
-echo "Building frontend docker image"
-docker build --build-arg VITE_SERVER_URL=https://api.medlm.intrep.xyz -t medlm_client ./client
+echo "Cleaning up Docker system..."
+docker system prune -f
+
+echo "Building frontend docker image with memory limits..."
+docker build \
+  --memory=4g \
+  --memory-swap=4g \
+  --build-arg VITE_SERVER_URL=https://api.medlm.intrep.xyz \
+  -t medlm_client \
+  ./client
 
 echo "Starting MedLM client..."
 sudo systemctl restart medlm
