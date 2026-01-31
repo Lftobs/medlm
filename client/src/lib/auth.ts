@@ -5,7 +5,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-console.log(process.env.VITE_SERVER_URL);
+
 
 export const auth = betterAuth({
   database: pool,
@@ -22,7 +22,9 @@ export const auth = betterAuth({
       enabled: true,
       domain: "medlm.intrep.xyz",
     },
+    cookiePrefix: "medlm",
   },
+
   trustedOrigins: [
     process.env.FE_URL || "http://localhost:3000",
     process.env.VITE_SERVER_URL || "http://localhost:8000",

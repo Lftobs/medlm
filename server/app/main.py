@@ -36,8 +36,9 @@ app.add_middleware(
     if isinstance(settings.BACKEND_CORS_ORIGINS, list)
     else [settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
+    allow_headers=["Content-Type", "Authorization", "Cookie", "Set-Cookie", "*"],
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
-    max_age=3600,  # Cache preflight requests for 1 hour
+    max_age=3600,
 )
 
 

@@ -2,7 +2,6 @@ import uuid
 from qdrant_client.models import PointStruct
 import threading
 
-from app.services.vector_service import semantic_chunk_text, vector_service
 
 from app.core.celery_app import celery_app
 from app.core.db import engine
@@ -19,75 +18,6 @@ from pathlib import Path
 
 
 logger = logging.getLogger(__name__)
-
-
-# def generate_and_store_embeddings(
-#     text: str, user_id: str, record_file_name: str, record_id: str
-# ):
-#     logger.info("Chunking text semantically...")
-
-#     model = get_embedding_model()
-
-#     chunks = semantic_chunk_text(text, model)
-#     logger.info(f"Text chunked into {len(chunks)} chunks")
-#     logger.info("Encoding chunks to embeddings...")
-
-#     docs_emb = encode_texts(
-#         chunks,
-#         batch_size=32,
-#     )
-
-#     stream_service.publish_sync(
-#         f"user:{user_id}:status",
-#         {
-#             "type": "file-operation",
-#             "status": "in_progress",
-#             "message": f"Generating AI embeddings for {record_file_name}...",
-#         },
-#     )
-
-#     doc_id = record_file_name
-#     points = [
-#         PointStruct(
-#             id=uuid.uuid4().hex,
-#             vector=embedding.tolist(),
-#             payload={
-#                 "user_id": user_id,
-#                 "doc_id": doc_id,
-#                 "chunk_id": chunk_id,
-#                 "text": chunks[chunk_id],
-#                 "record_id": record_id,
-#             },
-#         )
-#         for chunk_id, embedding in enumerate(docs_emb)
-#     ]
-
-#     logger.info(f"Created {len(points)} vector points, upserting to Qdrant...")
-
-#     try:
-#         vector_service.upsert_vectors("clinical_records", points)
-#         logger.info(f"Successfully upserted {len(points)} vectors to Qdrant")
-
-#         stream_service.publish_sync(
-#             f"user:{user_id}:status",
-#             {
-#                 "type": "file-operation",
-#                 "status": "in_progress",
-#                 "message": f"Finalizing secure storage for {record_file_name}...",
-#             },
-#         )
-#     except Exception as e:
-#         logger.error(f"Failed to upsert vectors to Qdrant: {e}", exc_info=True)
-#         stream_service.publish_sync(
-#             f"user:{user_id}:status",
-#             {
-#                 "type": "file-operation",
-#                 "status": "error",
-#                 "message": f"Error processing {record_file_name}",
-#             },
-#         )
-#         raise
-
 
 def analyze_and_store_document_content(text: str, record_id: str, user_id: str):
     logger.info("Analyzing document content (summary and classification)...")
@@ -465,14 +395,9 @@ def run_analysis_job(user_id: str, job_type: str | None = None):
         elif job_type == "vitals":
             run_vitals()
         else:
-            thread_trends = threading.Thread(target=run_trends)
-            thread_timeline = threading.Thread(target=run_timeline)
-            thread_vitals = threading.Thread(target=run_vitals)
-
-            thread_trends.start()
-            thread_timeline.start()
-            thread_vitals.start()
-
-            thread_trends.join()
-            thread_timeline.join()
-            thread_vitals.join()
+            logger.info(
+                "Running full analysis pipeline sequentially to prevent memory exhaustion"
+            )
+            run_timeline()
+            run_trends()
+            run_vitals()
