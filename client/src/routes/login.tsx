@@ -1,15 +1,13 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { signIn } from '../lib/auth-client'
+import { createFileRoute } from '@tanstack/react-router'
+import { signIn, signUp } from '../lib/auth-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
-import { API_BASE_URL } from '../lib/api'
 
 export const Route = createFileRoute('/login')({
     component: LoginPage,
 })
 
 function LoginPage() {
-    const navigate = useNavigate()
     const [isDemoLoading, setIsDemoLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -29,19 +27,33 @@ function LoginPage() {
         setIsDemoLoading(true)
         setError(null)
         try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/demo`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
+            const { data, error: authError } = await signIn.email({
+                email: 'demo@medlm.app',
+                password: 'demopassword123',
+                callbackURL: '/dashboard'
             })
 
-            if (response.ok) {
-                window.location.href = '/dashboard'
+            if (authError) {
+                // If user doesn't exist, we might want to sign them up first
+                // But typically for a demo, we assume the user exists or we handle it
+                if (authError.status === 401 || authError.code === "INVALID_EMAIL_OR_PASSWORD") {
+                    // Try to sign up if it's a demo
+                    const { error: signUpError } = await signUp.email({
+                        email: 'demo@medlm.app',
+                        password: 'demopassword123',
+                        name: 'Demo User',
+                        callbackURL: '/dashboard'
+                    })
+                    if (signUpError) {
+                        setError(signUpError.message || 'Demo account creation failed')
+                    } else {
+                        window.location.href = '/dashboard'
+                    }
+                } else {
+                    setError(authError.message || 'Demo login failed')
+                }
             } else {
-                const data = await response.json()
-                setError(data.detail || 'Demo login failed')
+                window.location.href = '/dashboard'
             }
         } catch (err) {
             console.error('Demo login error:', err)

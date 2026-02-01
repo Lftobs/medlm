@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from app.api.deps import get_current_user
 from app.models import User
 from app.core.config import settings
-from app.api.routes import upload, analysis, stream, chat, simplify, demo_auth
+from app.api.routes import upload, analysis, stream, chat, simplify
 from app.core.utils import cleanup_model
 from app.services.llm_service import llm_service
 
@@ -70,7 +70,6 @@ app.include_router(analysis.router)
 app.include_router(stream.router)
 app.include_router(chat.router)
 app.include_router(simplify.router)
-app.include_router(demo_auth.router)
 
 
 @app.get("/api/me")

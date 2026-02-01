@@ -17,24 +17,27 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     },
   },
+  emailAndPassword: {
+    enabled: true,
+  },
   advanced: {
-    // crossSubDomainCookies: {
-    //   enabled: true,
-    //   domain: "medlm.intrep.xyz",
-    // },
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: "medlm.intrep.xyz",
+    },
     cookiePrefix: "medlm",
-    cookies: {
-      state: {
-        attributes: {
-          sameSite: "none",
-          secure: true,
-        }
-      }
-    }
+    // cookies: {
+    //   state: {
+    //     attributes: {
+    //       sameSite: "none",
+    //       secure: true,
+    //     }
+    //   }
+    // }
   },
 
-  // trustedOrigins: [
-  //   process.env.FE_URL || "http://localhost:3000",
-  //   process.env.VITE_SERVER_URL || "http://localhost:8000",
-  // ],
+  trustedOrigins: [
+    process.env.FE_URL || "http://localhost:3000",
+    process.env.VITE_SERVER_URL || "http://localhost:8000",
+  ],
 });
