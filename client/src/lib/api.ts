@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL;
+const API_BASE_URL = import.meta.env.VITE_SERVER_URL || "https://api.medlm.intrep.xyz";
+console.log(API_BASE_URL, "url");
 
 export interface UploadResponse {
   message: string;
@@ -27,7 +28,7 @@ export async function uploadFiles(files: File[]): Promise<UploadResponse> {
     try {
       const errorData = await response.json();
       errorMessage = errorData.detail || errorMessage;
-    } catch (e) {}
+    } catch (e) { }
     throw new Error(errorMessage);
   }
 
@@ -69,7 +70,7 @@ export async function getTimeline() {
   });
   if (!response.ok) {
     if (response.status === 404) {
-      return null; // No timeline data yet
+      return null;
     }
     throw new Error("Failed to fetch timeline");
   }
@@ -220,7 +221,7 @@ export async function simplifyText(inputText: string) {
     try {
       const errorData = await response.json();
       errorMessage = errorData.error || errorMessage;
-    } catch (e) {}
+    } catch (e) { }
     throw new Error(errorMessage);
   }
 
@@ -248,7 +249,7 @@ export async function deleteRecords(recordIds: string[]) {
     try {
       const errorData = await response.json();
       errorMessage = errorData.detail || errorMessage;
-    } catch (e) {}
+    } catch (e) { }
     throw new Error(errorMessage);
   }
   return response.json();

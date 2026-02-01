@@ -19,12 +19,12 @@ celery_app = Celery(
 #     "app.worker.run_analysis_job": "main-queue",
 # }
 
-celery_app.conf.worker_pool = "prefork"
+celery_app.conf.worker_pool = "gevent"
 celery_app.conf.worker_concurrency = 4
 
 
 celery_app.conf.update(
-    worker_pool="prefork",
+    worker_pool="gevent",
     worker_concurrency=4,
     worker_prefetch_multiplier=1,
     task_acks_late=True,
