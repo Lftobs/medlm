@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL || "https://api.medlm.intrep.xyz";
+export const API_BASE_URL = import.meta.env.VITE_SERVER_URL || "https://api.medlm.intrep.xyz";
 console.log(API_BASE_URL, "url");
 
 export interface UploadResponse {

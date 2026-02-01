@@ -1,37 +1,124 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { signIn } from '../lib/auth-client'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useState } from 'react'
+import { API_BASE_URL } from '../lib/api'
 
 export const Route = createFileRoute('/login')({
     component: LoginPage,
 })
 
 function LoginPage() {
+    const navigate = useNavigate()
+    const [isDemoLoading, setIsDemoLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
     const handleGoogleSignIn = async () => {
-        await signIn.social({
-            provider: 'google',
-            callbackURL: '/dashboard',
-        })
+        try {
+            await signIn.social({
+                provider: 'google',
+                callbackURL: '/dashboard',
+            })
+        } catch (err) {
+            console.error('Google sign in error:', err)
+            setError('Failed to sign in with Google')
+        }
+    }
+
+    const handleDemoLogin = async () => {
+        setIsDemoLoading(true)
+        setError(null)
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/auth/demo`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+            })
+
+            if (response.ok) {
+                window.location.href = '/dashboard'
+            } else {
+                const data = await response.json()
+                setError(data.detail || 'Demo login failed')
+            }
+        } catch (err) {
+            console.error('Demo login error:', err)
+            setError('An error occurred during demo login')
+        } finally {
+            setIsDemoLoading(false)
+        }
     }
 
     return (
-        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 selection:bg-blue-100">
+            {/* Background decorative elements */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-100/50 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-100/50 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+            </div>
+
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-md"
+                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                className="w-full max-w-md relative z-10"
             >
-                <div className="text-center mb-8">
-                    <img src="/medlm-icon.svg" className="w-16 h-16 mx-auto mb-6 rounded-2xl shadow-lg hover:scale-105 transition-transform" alt="MedLM" />
-                    <h1 className="text-2xl font-semibold text-slate-900 mb-2">Welcome to MedLM</h1>
-                    <p className="text-slate-600">Sign in to access your medical history narrative</p>
+                <div className="text-center mb-10">
+                    <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.2, duration: 0.5 }}
+                        className="inline-block"
+                    >
+                        <div className="relative group">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                            <img
+                                src="/medlm-icon.svg"
+                                className="relative w-20 h-20 mx-auto rounded-2xl shadow-xl hover:scale-105 transition-transform duration-300"
+                                alt="MedLM"
+                            />
+                        </div>
+                    </motion.div>
+                    <motion.h1
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className="text-3xl font-bold text-slate-900 mt-8 mb-2 tracking-tight"
+                    >
+                        Welcome to MedLM
+                    </motion.h1>
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.4 }}
+                        className="text-slate-500 font-medium"
+                    >
+                        Your medical history, narrated by AI.
+                    </motion.p>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                <div className="bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl p-8 overflow-hidden relative">
+                    <AnimatePresence mode="wait">
+                        {error && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 font-medium flex items-center gap-3"
+                            >
+                                <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {error}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     <button
                         onClick={handleGoogleSignIn}
-                        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-400 transition-all group"
+                        className="w-full h-14 flex items-center justify-center gap-3 px-6 bg-white border border-slate-200 rounded-2xl text-slate-700 font-semibold hover:bg-slate-50 hover:border-slate-300 hover:shadow-md transition-all duration-300 group active:scale-[0.98]"
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
                             <path
@@ -54,15 +141,62 @@ function LoginPage() {
                         <span>Continue with Google</span>
                     </button>
 
-                    <div className="mt-6 text-center">
-                        <p className="text-xs text-slate-500">
-                            By continuing, you agree to our{' '}
-                            <a href="#" className="text-blue-600 hover:underline">Terms of Service</a>
-                            {' '}and{' '}
-                            <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                    <div className="relative my-8">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-slate-100" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase tracking-widest font-bold text-slate-400">
+                            <span className="px-4 bg-white">or</span>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleDemoLogin}
+                        disabled={isDemoLoading}
+                        className="w-full h-14 relative flex items-center justify-center gap-3 px-6 bg-slate-900 border border-slate-900 rounded-2xl text-white font-semibold hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed group overflow-hidden active:scale-[0.98]"
+                    >
+                        {isDemoLoading ? (
+                            <div className="flex items-center gap-2">
+                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Starting Experience...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <div className="flex items-center gap-3 relative z-10">
+                                    <svg className="w-5 h-5 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    <span>Try the Demo</span>
+                                </div>
+                            </>
+                        )}
+                    </button>
+
+                    <div className="mt-8 text-center">
+                        <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                            Experience our AI-powered medical insights <br />
+                            <span className="text-slate-600">without sharing your data.</span>
                         </p>
                     </div>
                 </div>
+
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="mt-8 text-center"
+                >
+                    <p className="text-xs text-slate-500">
+                        By continuing, you agree to our{' '}
+                        <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold hover:underline">Terms</a>
+                        {' '}and{' '}
+                        <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold hover:underline">Privacy Policy</a>
+                    </p>
+                </motion.div>
             </motion.div>
         </div>
     )

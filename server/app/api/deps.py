@@ -9,8 +9,8 @@ from datetime import datetime, UTC
 async def get_current_user(
     request: Request, db: Session = Depends(get_session)
 ) -> User:
-    session_token = request.cookies.get("__Secure-medlm.session_token")
-    # session_token = request.cookies.get("medlm.session_token")
+    # session_token = request.cookies.get("__Secure-medlm.session_token")
+    session_token = request.cookies.get("medlm.session_token")
     # print(session_token, "ses")
 
     if session_token:

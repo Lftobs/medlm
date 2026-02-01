@@ -59,13 +59,14 @@ async def demo_login(
     db.refresh(new_session)
     
     # Set the cookie
-    cookie_name = "__Secure-better-auth.session_token"
+    # Aligning with what deps.py expect
+    cookie_name = "medlm.session_token"
     
     response.set_cookie(
         key=cookie_name,
         value=f"{session_token}.nothing",
         httponly=True,
-        secure=True, 
+        secure=False, # Set to False for local development
         samesite="lax",
         expires=expires_at,
         path="/"
