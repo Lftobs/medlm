@@ -34,10 +34,8 @@ function LoginPage() {
             })
 
             if (authError) {
-                // If user doesn't exist, we might want to sign them up first
-                // But typically for a demo, we assume the user exists or we handle it
                 if (authError.status === 401 || authError.code === "INVALID_EMAIL_OR_PASSWORD") {
-                    // Try to sign up if it's a demo
+
                     const { error: signUpError } = await signUp.email({
                         email: 'demo@medlm.app',
                         password: 'demopassword123',
