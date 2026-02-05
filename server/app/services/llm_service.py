@@ -3,7 +3,6 @@ import logging
 import threading
 
 from app.core.config import settings
-from app.core.utils import get_embedding_model
 from .llm.memory_service import memory_service
 
 logger = logging.getLogger(__name__)
@@ -13,7 +12,6 @@ class LLMService:
     _lm = None
     _timeline_predictor = None
     _trend_predictor = None
-    _embedding_model = None
     _chat_predictor = None
     _text_simplification_predictor = None
     _document_classifier_predictor = None
@@ -60,9 +58,6 @@ class LLMService:
                         VitalSignsAnalysisSignature
                     )
 
-                    if cls._embedding_model is None:
-                        cls._embedding_model = get_embedding_model()
-
     def __init__(self):
         self.memory_service = memory_service
         self._initialized = False
@@ -87,8 +82,9 @@ class LLMService:
 
             logger.info("LLM service resources cleaned up")
 
-
-    async def chat_medlm_async(self, user_id: str, message: str, user_context: dict = None):
+    async def chat_medlm_async(
+        self, user_id: str, message: str, user_context: dict = None
+    ):
         """
         Async generator for chat responses.
         """

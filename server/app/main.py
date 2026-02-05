@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.api.deps import get_current_user
@@ -62,6 +62,32 @@ async def cors_exception_handler(request: Request, exc: Exception):
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
     print(settings.BACKEND_CORS_ORIGINS, "----->", allowed_origins)
+    return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions and ensure CORS headers are present."""
+    origin = request.headers.get("origin")
+
+    response = JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    if origin:
+        allowed_origins = (
+            settings.BACKEND_CORS_ORIGINS
+            if isinstance(settings.BACKEND_CORS_ORIGINS, list)
+            else [settings.BACKEND_CORS_ORIGINS]
+        )
+
+        if "*" in allowed_origins or origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = (
+                "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+            )
+            response.headers["Access-Control-Allow-Headers"] = (
+                "Content-Type, Authorization, Cookie, Set-Cookie, *"
+            )
     return response
 
 
