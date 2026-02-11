@@ -19,6 +19,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 def analyze_and_store_document_content(text: str, record_id: str, user_id: str):
     logger.info("Analyzing document content (summary and classification)...")
 
@@ -51,8 +52,11 @@ def analyze_and_store_document_content(text: str, record_id: str, user_id: str):
 
                 try:
                     memory_msg = f"{summary}"
+                    messages = [
+                        {"role": "user", "content": memory_msg},
+                    ]
                     llm_service.memory_service.add_memory(
-                        msg=memory_msg,
+                        msg=messages,
                         user_id=user_id,
                         metadata={
                             "source": "document_analysis",
