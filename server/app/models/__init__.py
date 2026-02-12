@@ -18,6 +18,7 @@ class User(SQLModel, table=True):
     timeline_events: List["TimelineEvent"] = Relationship(back_populates="user")
     health_trends: List["HealthTrend"] = Relationship(back_populates="user")
     health_vitals: List["HealthVital"] = Relationship(back_populates="user")
+    chat_sessions: List["ChatSession"] = Relationship(back_populates="user")
 
 
 class Session(SQLModel, table=True):
@@ -57,6 +58,33 @@ class Verification(SQLModel, table=True):
     expiresAt: datetime
     createdAt: datetime
     updatedAt: datetime
+
+
+class ChatSession(SQLModel, table=True):
+    __tablename__ = "chat_session"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: str = Field(foreign_key="user.id")
+    title: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    user: User = Relationship(back_populates="chat_sessions")
+    messages: List["ChatMessage"] = Relationship(
+        back_populates="session",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class ChatMessage(SQLModel, table=True):
+    __tablename__ = "chat_message"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    session_id: UUID = Field(foreign_key="chat_session.id")
+    user_id: str = Field(foreign_key="user.id")
+    role: str  # user, ai, system
+    content: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    session: ChatSession = Relationship(back_populates="messages")
 
 
 class MedicalRecord(SQLModel, table=True):

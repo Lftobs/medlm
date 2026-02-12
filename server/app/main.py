@@ -8,6 +8,7 @@ from app.api.deps import get_current_user
 from app.models import User
 from app.core.config import settings
 from app.api.routes import upload, analysis, stream, chat, simplify
+from app.core.db import init_db
 from app.core.utils import cleanup_model
 from app.services.llm_service import llm_service
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up application...")
+    init_db()
 
     yield
 
