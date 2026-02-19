@@ -7,6 +7,7 @@ from sqlmodel import Session
 from app.models import User
 from app.services.gemini_service import gemini_service
 from app.services.llm_service import llm_service
+from app.core.crypto import encrypt_content, decrypt_content
 import logging
 from pydantic import BaseModel
 import asyncio
@@ -55,7 +56,7 @@ async def chat_with_context(
     else:
         chat_session = ChatSession(
             user_id=current_user.id,
-            title=request.message[:50],  # Use first message as title
+            title=encrypt_content(request.message[:50]),  # Encrypt title
         )
         db.add(chat_session)
         db.commit()
@@ -66,7 +67,7 @@ async def chat_with_context(
         session_id=chat_session.id,
         user_id=current_user.id,
         role="user",
-        content=request.message,
+        content=encrypt_content(request.message), # Encrypt content
     )
     db.add(user_message)
     db.commit()
@@ -98,7 +99,7 @@ async def chat_with_context(
                 session_id=chat_session.id,
                 user_id=current_user.id,
                 role="ai",
-                content=full_response,
+                content=encrypt_content(full_response), # Encrypt content
             )
             # Need a new session for the generator because the parent one might be closed
             with Session(db.bind) as new_db:
@@ -135,6 +136,11 @@ async def list_chat_sessions(
         .where(ChatSession.user_id == current_user.id)
         .order_by(ChatSession.updated_at.desc())
     ).all()
+    
+    # Decrypt titles for response
+    for s in sessions:
+        s.title = decrypt_content(s.title)
+        
     return sessions
 
 
@@ -159,6 +165,11 @@ async def get_chat_messages(
         .where(ChatMessage.session_id == session_id)
         .order_by(ChatMessage.created_at.asc())
     ).all()
+    
+    # Decrypt content for response
+    for m in messages:
+        m.content = decrypt_content(m.content)
+        
     return messages
 
 

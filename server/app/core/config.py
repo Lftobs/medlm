@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str
+    ENCRYPTION_KEY: str #32 chars for AES-256
 
     PROJECT_NAME: str = "MedLM API"
 

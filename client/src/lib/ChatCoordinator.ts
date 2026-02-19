@@ -88,7 +88,7 @@ class ChatCoordinator {
 
                             // Persist user message with real session ID
                             userMsg.session_id = newId;
-                            db.saveMessage(userMsg);
+                            db.saveMessage(userMsg).catch(console.error);
 
                             const newSession: db.ChatSession = {
                                 id: newId,
@@ -97,7 +97,7 @@ class ChatCoordinator {
                                 created_at: Date.now(),
                                 updated_at: Date.now(),
                             };
-                            db.saveSession(newSession);
+                            db.saveSession(newSession).catch(console.error);
                         }
                     },
                     onStatus: (status: string) => {

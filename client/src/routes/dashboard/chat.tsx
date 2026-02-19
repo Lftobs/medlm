@@ -1,14 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Send, TrendingUp, Info } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { Send, Info } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import {
   getChatSessions,
@@ -20,7 +11,6 @@ import * as db from "../../lib/db";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Plus, MessageSquare, Trash2, History } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
 import { useChat } from "../../contexts/ChatContext";
 
 export const Route = createFileRoute("/dashboard/chat")({
@@ -135,9 +125,6 @@ function AnalysisPage() {
     const userMsg = input;
     setInput("");
 
-    // If we're starting a new chat, we need to handle it.
-    // The sendMessage in context handles session creation.
-    // We pass the current messages as history.
     await sendMessage(currentSessionId, userMsg, messages);
   };
 
