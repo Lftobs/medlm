@@ -144,6 +144,8 @@ export async function streamChat(
 
     if (!reader) throw new Error("No reader available");
 
+    let currentEvent = "";
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -151,13 +153,25 @@ export async function streamChat(
       const chunk = decoder.decode(value);
       const lines = chunk.split("\n");
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
+        if (line.startsWith("event: ")) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
           const data = line.slice(6);
           try {
-            onChunk(JSON.parse(data));
+            const parsed = JSON.parse(data);
+            if (currentEvent === "status") {
+              (context as any).onStatus?.(parsed);
+            } else {
+              onChunk(parsed);
+            }
           } catch (e) {
-            onChunk(data);
+            if (currentEvent === "status") {
+              (context as any).onStatus?.(data);
+            } else {
+              onChunk(data);
+            }
           }
+          currentEvent = ""; // Reset after data
         }
       }
     }

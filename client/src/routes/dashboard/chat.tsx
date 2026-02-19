@@ -9,12 +9,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   getChatSessions,
   getChatMessages,
   deleteChatSession as deleteRemoteSession,
-  streamChat,
 } from "../../lib/api";
 import { useSession } from "../../lib/auth-client";
 import * as db from "../../lib/db";
@@ -22,6 +21,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Plus, MessageSquare, Trash2, History } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { useChat } from "../../contexts/ChatContext";
 
 export const Route = createFileRoute("/dashboard/chat")({
   component: AnalysisPage,
@@ -31,14 +31,17 @@ function AnalysisPage() {
   const { data: sessionData } = useSession();
   const userId = sessionData?.user?.id;
 
+  const { streams, sendMessage, activeSessionId, setActiveSessionId } = useChat();
+
   const [sessions, setSessions] = useState<db.ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const currentSessionId = activeSessionId;
+  const setCurrentSessionId = setActiveSessionId;
 
   // Load all sessions
   useEffect(() => {
@@ -46,13 +49,10 @@ function AnalysisPage() {
 
     const loadSessions = async () => {
       try {
-        // Load from local DB first for instant UI
         const localSessions = await db.getSessions(userId);
         setSessions(localSessions.sort((a, b) => b.updated_at - a.updated_at));
 
-        // Sync from server
         const remoteSessions = await getChatSessions();
-        // Update local DB with remote sessions
         for (const s of remoteSessions) {
           await db.saveSession({
             id: s.id,
@@ -79,18 +79,19 @@ function AnalysisPage() {
       return;
     }
 
+    // If there's an active stream for this session, we'll use its messages
+    if (streams[currentSessionId]) {
+      setMessages(streams[currentSessionId].messages);
+      return;
+    }
+
     const loadMessages = async () => {
       setIsLoadingHistory(true);
       try {
-        // Try local first
         const localMsgs = await db.getMessages(currentSessionId);
-        if (localMsgs.length > 0) {
-          setMessages(localMsgs.sort((a, b) => a.created_at - b.created_at));
-        }
+        setMessages(localMsgs.sort((a, b) => a.created_at - b.created_at));
 
-        // Fetch from server to ensure sync
         const remoteMsgs = await getChatMessages(currentSessionId);
-        // Update local with remote
         for (const m of remoteMsgs) {
           await db.saveMessage({
             id: m.id,
@@ -113,6 +114,13 @@ function AnalysisPage() {
     loadMessages();
   }, [currentSessionId]);
 
+  // Sync state if a stream is active
+  useEffect(() => {
+    if (currentSessionId && streams[currentSessionId]) {
+      setMessages(streams[currentSessionId].messages);
+    }
+  }, [streams, currentSessionId]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -127,110 +135,14 @@ function AnalysisPage() {
     const userMsg = input;
     setInput("");
 
-    // New message setup
-    const userMsgObj: db.ChatMessage = {
-      id: uuidv4(),
-      session_id: currentSessionId || '', // Temporary if no session
-      user_id: userId,
-      role: 'user',
-      content: userMsg,
-      created_at: Date.now(),
-    };
-
-    if (currentSessionId) {
-      setMessages((prev) => [...prev, userMsgObj]);
-      await db.saveMessage(userMsgObj);
-    } else {
-      // Create a temporary session in state if none selected
-      setMessages([userMsgObj]);
-    }
-
-    setIsTyping(true);
-    let currentResponse = "";
-
-    // Placeholder for AI message
-    const aiMsgId = uuidv4();
-    setMessages((prev) => [...prev, { id: aiMsgId, role: "ai", content: "" }]);
-
-    await streamChat(
-      userMsg,
-      {
-        page: "chat",
-        session_id: currentSessionId,
-        onSessionCreated: (newId: string) => {
-          if (!currentSessionId) {
-            setCurrentSessionId(newId);
-            // Update the user message session_id in DB
-            userMsgObj.session_id = newId;
-            db.saveMessage(userMsgObj);
-
-            // Create session in local DB
-            const newSession: db.ChatSession = {
-              id: newId,
-              user_id: userId,
-              title: userMsg.slice(0, 50),
-              created_at: Date.now(),
-              updated_at: Date.now(),
-            };
-            db.saveSession(newSession);
-            setSessions(prev => [newSession, ...prev]);
-          }
-        }
-      },
-      (chunk) => {
-        if (chunk && typeof chunk === "string") {
-          let text = chunk;
-          if (text.startsWith('"') && text.endsWith('"')) {
-            text = text.slice(1, -1);
-          }
-          text = text.replace(/\\n/g, "\n");
-
-          currentResponse += text;
-
-          setMessages((prev) => {
-            const newMsgs = [...prev];
-            const aiIdx = newMsgs.findIndex(m => m.id === aiMsgId);
-            if (aiIdx !== -1) {
-              newMsgs[aiIdx] = {
-                ...newMsgs[aiIdx],
-                content: currentResponse,
-              };
-            }
-            return newMsgs;
-          });
-        }
-      },
-      (err) => {
-        console.error(err);
-        setIsTyping(false);
-        setMessages((prev) => [
-          ...prev,
-          { role: "system", content: `Error: ${err}` },
-        ]);
-      },
-    );
-
-    // Save AI response to local DB
-    if (currentSessionId) {
-      await db.saveMessage({
-        id: aiMsgId,
-        session_id: currentSessionId,
-        user_id: userId,
-        role: 'ai',
-        content: currentResponse,
-        created_at: Date.now(),
-      });
-      // Update session timestamp
-      const session = sessions.find(s => s.id === currentSessionId);
-      if (session) {
-        const updated = { ...session, updated_at: Date.now() };
-        await db.saveSession(updated);
-        setSessions(prev => prev.map(s => s.id === currentSessionId ? updated : s).sort((a, b) => b.updated_at - a.updated_at));
-      }
-    }
-
-    setIsTyping(false);
+    // If we're starting a new chat, we need to handle it.
+    // The sendMessage in context handles session creation.
+    // We pass the current messages as history.
+    await sendMessage(currentSessionId, userMsg, messages);
   };
+
+  const isTyping = currentSessionId ? streams[currentSessionId]?.isTyping : false;
+  const currentStatus = currentSessionId ? streams[currentSessionId]?.status : null;
 
   const handleNewChat = () => {
     setCurrentSessionId(null);
@@ -480,7 +392,12 @@ function AnalysisPage() {
                   {msg.role === "ai" &&
                     idx === messages.length - 1 &&
                     isTyping && (
-                      <div className="flex items-center gap-2 mt-2 text-blue-600">
+                      <div className="flex flex-col gap-2 mt-2 text-blue-600">
+                        {currentStatus && (
+                          <div className="text-xs font-medium italic animate-pulse">
+                            {currentStatus}
+                          </div>
+                        )}
                         <div className="flex gap-1">
                           <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
                           <div
