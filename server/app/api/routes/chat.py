@@ -21,13 +21,13 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 class ChatRequest(BaseModel):
     message: str
     context: dict = None
-    session_id: Optional[UUID] = None
+    session_id: UUID | None = None
 
 
 class ChatMedLMRequest(BaseModel):
     message: str
     context: dict = None
-    session_id: Optional[UUID] = None
+    session_id: UUID | None = None
 
 
 @router.post("")
@@ -83,6 +83,11 @@ async def chat_with_context(
                 chunk_count += 1
                 if chunk_count == 1:
                     logger.info("Started streaming LLM response")
+
+                # If the chunk is a status update, send it but don't add to full_response
+                if chunk.startswith("Thinking..."):
+                    yield {"event": "status", "data": chunk}
+                    continue
 
                 full_response += chunk
                 yield {"data": chunk}

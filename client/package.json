@@ -21,6 +21,7 @@
     "@tanstack/react-router-ssr-query": "^1.131.7",
     "@tanstack/react-start": "^1.132.0",
     "@tanstack/router-plugin": "^1.132.0",
+    "@types/uuid": "^11.0.0",
     "axios": "^1.13.2",
     "better-auth": "^1.4.9",
     "clsx": "^2.1.1",
@@ -38,6 +39,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.0.6",
+    "uuid": "^13.0.0",
     "vite-tsconfig-paths": "^6.0.2"
   },
   "devDependencies": {

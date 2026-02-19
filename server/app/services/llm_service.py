@@ -35,7 +35,7 @@ class LLMService:
                     )
 
                     cls._lm = dspy.LM(
-                        model="gemini/gemini-2.5-flash",
+                        model="gemini/gemini-3-flash",
                         api_key=settings.GEMINI_API_KEY,
                         temperature=0.3,
                         cache=True,
@@ -86,6 +86,7 @@ class LLMService:
     async def chat_medlm_async(
         self, user_id: str, message: str, user_context: dict = None
     ):
+    
         """
         Async generator for chat responses.
         """
@@ -93,6 +94,7 @@ class LLMService:
         response_text = ""
 
         try:
+            yield "Thinking... (retrieving health context)"
             memory_results = await asyncio.to_thread(
                 self.memory_service.search_combined_memory, user_id, message
             )
@@ -122,7 +124,9 @@ class LLMService:
                     return react_agent(context=formatted_context, user_input=message)
 
             try:
-                prediction = await asyncio.to_thread(run_agent)
+                yield "Thinking... (analyzing your medical records)"
+                prediction = run_agent()
+                print(prediction)
                 response_text = prediction.response
                 msg = [
                     {"role": "user", "content": message},
@@ -139,6 +143,7 @@ class LLMService:
                     f"I apologize, but I encountered an error. Please try again"
                 )
 
+            # Clear the thinking states by yielding the final text
             yield response_text
 
         except Exception as e:
