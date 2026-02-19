@@ -296,8 +296,8 @@ function AnalysisPage() {
                 key={s.id}
                 onClick={() => setCurrentSessionId(s.id)}
                 className={`group flex items-center gap-3 p-3 rounded-lg text-sm cursor-pointer transition-all ${currentSessionId === s.id
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   }`}
               >
                 <div className="shrink-0">

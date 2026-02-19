@@ -1,5 +1,6 @@
 import dspy
 import logging
+from uuid import UUID
 from sqlmodel import Session, select
 from app.core.db import engine
 from app.models import MedicalRecord
@@ -26,14 +27,18 @@ class ReadMedicalRecord:
         """
         logger.info(f"Tool ReadMedicalRecord called for: {file_name_or_id}")
         
+        record = None
         with Session(engine) as db:
-            record = db.exec(
-                select(MedicalRecord).where(
-                    MedicalRecord.id == file_name_or_id,
-                    MedicalRecord.user_id == self.user_id
-                )
-            ).first()
-
+            try:
+                UUID(str(file_name_or_id))
+                record = db.exec(
+                    select(MedicalRecord).where(
+                        MedicalRecord.id == file_name_or_id,
+                        MedicalRecord.user_id == self.user_id
+                    )
+                ).first()
+            except (ValueError, TypeError):
+                pass
             if not record:
                 record = db.exec(
                     select(MedicalRecord).where(
