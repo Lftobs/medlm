@@ -1,7 +1,5 @@
 from mem0 import MemoryClient
 from app.core.config import settings
-from app.services.vector_service import vector_service
-from app.core.utils import encode_texts
 import logging
 
 logger = logging.getLogger(__name__)
@@ -84,39 +82,7 @@ class MemoryService:
             dict: Combined results with keys 'qdrant' and 'mem0'
         """
         self._ensure_initialized()
-        combined_results = {"qdrant": [], "mem0": [], "document_summaries": []}
-
-        try:
-            logger.info(
-                f"Searching Qdrant for user {user_id} with query: {query[:50]}..."
-            )
-
-            query_embedding = encode_texts([query])[0].tolist()
-
-            qdrant_results = vector_service.hybrid_search(
-                collection_name="clinical_records",
-                query_text=query,
-                query_vector=query_embedding,
-            )
-
-            for result in qdrant_results:
-                combined_results["qdrant"].append(
-                    {
-                        "text": result.payload.get("text", ""),
-                        "score": result.score,
-                        "metadata": {
-                            "record_id": result.payload.get("record_id"),
-                            "user_id": result.payload.get("user_id"),
-                            "chunk_index": result.payload.get("chunk_index"),
-                            "file_name": result.payload.get("file_name"),
-                        },
-                    }
-                )
-
-            logger.info(f"Found {len(combined_results['qdrant'])} results from Qdrant")
-
-        except Exception as e:
-            logger.error(f"Qdrant search failed: {e}", exc_info=True)
+        combined_results = {"mem0": [], "document_summaries": []}
 
         try:
             logger.info(f"Searching mem0 for user {user_id}...")
@@ -191,7 +157,7 @@ class MemoryService:
             logger.error(f"Memory search failed: {e}", exc_info=True)
             return []
 
-    def add_memory(self, msg: str, user_id: str, metadata: dict | None = None):
+    def add_memory(self, msg: dict, user_id: str, metadata: dict | None = None):
         self._ensure_initialized()
         if not self._mem:
             logger.warning(
@@ -203,50 +169,14 @@ class MemoryService:
             logger.info(
                 f"Adding memory to mem0 for user {user_id}. msg len: {len(msg)}"
             )
-
-            if isinstance(msg, list):
-                if metadata is not None:
-                    self._mem.add(msg, user_id=user_id, metadata=metadata)
-                else:
-                    self._mem.add(msg, user_id=user_id)
-                logger.info("Added conversation memory to mem0")
-                return
-
-            if (
-                isinstance(msg, str)
-                and msg.startswith("User: ")
-                and "\nAssistant: " in msg
-            ):
-                parts = msg.split("\nAssistant: ", 1)
-                user_part = parts[0].replace("User: ", "")
-                assistant_part = parts[1] if len(parts) > 1 else ""
-
-                user_metadata = (metadata or {}).copy()
-                user_metadata["type"] = "user_information"
-                self._mem.add(
-                    f"User reported: {user_part}",
-                    user_id=user_id,
-                    metadata=user_metadata,
-                )
-
-                if assistant_part:
-                    advice_metadata = (metadata or {}).copy()
-                    advice_metadata["type"] = "medical_advice"
-                    advice_summary = f"Medical advice given: When user reported {user_part[:100]}, assistant advised: {assistant_part[:150]}"
-                    self._mem.add(
-                        advice_summary, user_id=user_id, metadata=advice_metadata
-                    )
-
-                logger.info("Added structured user info and medical advice to mem0")
-            else:
-                if metadata is not None:
-                    self._mem.add(msg, user_id=user_id, metadata=metadata)
-                else:
-                    self._mem.add(msg, user_id=user_id)
-
-            logger.info("Memory added to mem0 client")
+            self._mem.add(messages=msg, user_id=user_id, metadata=metadata)
+            logger.info(
+                "Added conversation memory to mem0 (converted to string format)"
+            )
+            return
 
         except Exception as e:
+            print(e)
             logger.error(f"Memory add failed in service: {e}", exc_info=True)
             pass
 

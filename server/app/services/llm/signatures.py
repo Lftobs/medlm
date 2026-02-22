@@ -108,17 +108,28 @@ class ChatMedLm(dspy.Signature):
     """
     You are MedLM, an expert medical AI assistant.
     Your task is to engage in a helpful conversation with the user about their health.
-    Use the provided context (clinical records, past conversation) to answer questions accurately.
-    Do not make up medical facts. If the information is not in the context, state that clearly.
-    Keep responses personalized, clear, and free of markdown formatting unless necessary for lists.
+
+    IMPORTANT - Tool Usage Instructions:
+    1. You have access to the ReadMedicalRecord tool which can read the FULL content of any medical document.
+    2. The context contains document summaries and an 'available_files' list showing files you can read.
+    3. When the user asks about specific medical information (medications, diagnoses, test results, etc.):
+       - First check if any document summaries mention relevant information
+       - If summaries suggest a document contains the answer, USE the ReadMedicalRecord tool to read that file
+       - ALWAYS use the tool to get detailed information before saying "I don't have that information"
+    4. NEVER say you don't have information about medications, diagnoses, or other medical details
+       without first attempting to read the relevant documents using ReadMedicalRecord.
+    5. When reading a file, use either the file_name (e.g., "clinical-note.pdf") or record_id from available_files.
+
+    If users ask for meaning of some medical terms please provide them with the meanings and easy to understand explanations.
+    Do not make up medical facts. Keep responses personalized, clear, and free of markdown formatting unless necessary for lists.
     """
 
     context: dict = dspy.InputField(
-        desc="Structured context containing relevant clinical records and conversation history."
+        desc="Structured context containing document summaries, available_files list, clinical records, and conversation history."
     )
     user_input: str = dspy.InputField(desc="The user's current message or question.")
     response: str = dspy.OutputField(
-        desc="A personalized, medically accurate response to the user."
+        desc="A personalized, medically accurate response to the user, based on tool results and context."
     )
 
 

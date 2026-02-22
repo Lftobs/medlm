@@ -2,6 +2,7 @@ import asyncio
 import logging
 import threading
 
+from datetime import datetime
 from app.core.config import settings
 from .llm.memory_service import memory_service
 
@@ -98,7 +99,6 @@ class LLMService:
 
             context = {
                 "document_summaries": memory_results.get("document_summaries", []),
-                "qdrant_results": memory_results.get("qdrant", []),
                 "mem0_results": memory_results.get("mem0", []),
                 "user_context": user_context or {},
             }
@@ -107,7 +107,6 @@ class LLMService:
 
             logger.info(
                 f"Chat context prepared with {len(memory_results.get('document_summaries', []))} summaries, "
-                f"{len(memory_results.get('qdrant', []))} Qdrant results"
             )
 
             from .llm.tool_read_record import ReadMedicalRecord
@@ -125,27 +124,20 @@ class LLMService:
             try:
                 prediction = await asyncio.to_thread(run_agent)
                 response_text = prediction.response
+                msg = [
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": response_text},
+                ]
+                metadata = {
+                    "source": "chat_medlm",
+                    "timestamp": datetime.now().isoformat(),
+                }
+                self.memory_service.add_memory(msg, user_id, metadata)
             except Exception as e:
                 logger.error(f"Chat ReAct agent failed: {e}", exc_info=True)
-                response_text = f"I apologize, but I encountered an error: {str(e)}"
-
-            try:
-                await asyncio.to_thread(
-                    self.memory_service.add_memory,
-                    msg=[
-                        {"role": "user", "content": message},
-                        {"role": "assistant", "content": response_text},
-                    ],
-                    user_id=user_id,
-                    metadata={
-                        "source": "chat_medlm",
-                        "has_qdrant_context": len(memory_results.get("qdrant", [])) > 0,
-                        "used_tools": True,
-                    },
+                response_text = (
+                    f"I apologize, but I encountered an error. Please try again"
                 )
-                logger.info("Chat memory saved successfully")
-            except Exception as e:
-                logger.error(f"Failed to save chat memory: {e}", exc_info=True)
 
             yield response_text
 
@@ -156,18 +148,22 @@ class LLMService:
     def _format_context_for_chat(self, context: dict) -> dict:
         formatted = {
             "document_summaries": context.get("document_summaries", []),
+            "available_files": [],
             "clinical_records": [],
             "conversation_history": [],
             "additional_context": context.get("user_context", {}),
         }
 
-        for idx, result in enumerate(context.get("qdrant_results", []), 1):
-            formatted["clinical_records"].append(
+        for summary in context.get("document_summaries", []):
+            formatted["available_files"].append(
                 {
-                    "source": f"Record {idx}",
-                    "content": result.get("text", ""),
-                    "relevance": f"{result.get('score', 0):.2f}",
-                    "file": result.get("metadata", {}).get("file_name", "Unknown"),
+                    "file_name": summary.get("file_name", "Unknown"),
+                    "record_id": summary.get("record_id", ""),
+                    "category": summary.get("category", "Unknown"),
+                    "summary_preview": summary.get("summary", "")[:200] + "..."
+                    if len(summary.get("summary", "")) > 200
+                    else summary.get("summary", ""),
+                    "hint": "Use ReadMedicalRecord tool with file_name or record_id to read full content",
                 }
             )
 
@@ -177,6 +173,13 @@ class LLMService:
                     "memory": memory.get("memory", ""),
                     "relevance": f"{memory.get('score', 0):.2f}",
                 }
+            )
+        if formatted["available_files"] and not formatted["clinical_records"]:
+            formatted["tool_usage_hint"] = (
+                "NOTE: No clinical records were retrieved from vector search. "
+                "However, document summaries and files are available. "
+                "Use the ReadMedicalRecord tool to read any file listed in available_files "
+                "to answer the user's question."
             )
 
         return formatted
