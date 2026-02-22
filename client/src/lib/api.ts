@@ -128,16 +128,23 @@ export async function streamChat(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message, context }),
+      body: JSON.stringify({ message, context, session_id: context?.session_id }),
       credentials: "include",
     });
 
     if (!response.ok) throw new Error("Chat request failed");
 
+    const sessionId = response.headers.get("X-Chat-Session-ID");
+    if (sessionId && context && typeof context === 'object') {
+      (context as any).onSessionCreated?.(sessionId);
+    }
+
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
 
     if (!reader) throw new Error("No reader available");
+
+    let currentEvent = "";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -146,13 +153,25 @@ export async function streamChat(
       const chunk = decoder.decode(value);
       const lines = chunk.split("\n");
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
+        if (line.startsWith("event: ")) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
           const data = line.slice(6);
           try {
-            onChunk(JSON.parse(data));
+            const parsed = JSON.parse(data);
+            if (currentEvent === "status") {
+              (context as any).onStatus?.(parsed);
+            } else {
+              onChunk(parsed);
+            }
           } catch (e) {
-            onChunk(data);
+            if (currentEvent === "status") {
+              (context as any).onStatus?.(data);
+            } else {
+              onChunk(data);
+            }
           }
+          currentEvent = ""; // Reset after data
         }
       }
     }
@@ -252,5 +271,30 @@ export async function deleteRecords(recordIds: string[]) {
     } catch (e) { }
     throw new Error(errorMessage);
   }
+  return response.json();
+}
+
+export async function getChatSessions() {
+  const response = await fetch(`${API_BASE_URL}/api/chat/sessions`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to fetch chat sessions");
+  return response.json();
+}
+
+export async function getChatMessages(sessionId: string) {
+  const response = await fetch(`${API_BASE_URL}/api/chat/sessions/${sessionId}/messages`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to fetch chat messages");
+  return response.json();
+}
+
+export async function deleteChatSession(sessionId: string) {
+  const response = await fetch(`${API_BASE_URL}/api/chat/sessions/${sessionId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to delete chat session");
   return response.json();
 }

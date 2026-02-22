@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useSession, authClient } from "../lib/auth-client";
 import { DashboardHeader } from "../components/DashboardHeader";
+import { MultiSessionIndicator } from "../components/MultiSessionIndicator";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
@@ -84,6 +85,7 @@ function DashboardLayout() {
 
         {/* Child Route Content */}
         <Outlet />
+        <MultiSessionIndicator />
       </main>
     </div>
   );

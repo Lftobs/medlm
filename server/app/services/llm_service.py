@@ -35,7 +35,7 @@ class LLMService:
                     )
 
                     cls._lm = dspy.LM(
-                        model="gemini/gemini-2.5-flash",
+                        model="gemini/gemini-3-flash-preview",
                         api_key=settings.GEMINI_API_KEY,
                         temperature=0.3,
                         cache=True,
@@ -86,6 +86,7 @@ class LLMService:
     async def chat_medlm_async(
         self, user_id: str, message: str, user_context: dict = None
     ):
+    
         """
         Async generator for chat responses.
         """
@@ -138,7 +139,6 @@ class LLMService:
                 response_text = (
                     f"I apologize, but I encountered an error. Please try again"
                 )
-
             yield response_text
 
         except Exception as e:
